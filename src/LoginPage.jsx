@@ -2,6 +2,20 @@ import { useState } from 'react';
 
 const AUTH_SESSION_KEY = 'my-react-study-auth-session';
 
+async function readJsonResponse(response) {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
 function LoginPage({ onLogin }) {
   const [mode, setMode] = useState('signup');
   const [name, setName] = useState('');
@@ -29,10 +43,14 @@ function LoginPage({ onLogin }) {
           password,
         }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
 
       if (!response.ok) {
-        throw new Error(data.message || '요청에 실패했습니다.');
+        throw new Error(data.message || `요청에 실패했습니다. (${response.status})`);
+      }
+
+      if (!data.token || !data.user) {
+        throw new Error('로그인 응답이 올바르지 않습니다.');
       }
 
       const session = {

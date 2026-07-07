@@ -30,9 +30,6 @@ const copy = {
   empty: '오늘 할 일을 입력해 주세요',
 };
 
-// 로컬 스토리지에 사용할 키
-const STORAGE_KEY = 'todos_v1';
-
 const readSavedSession = () => {
   if (typeof window === 'undefined') {
     return null;
@@ -48,6 +45,20 @@ const readSavedSession = () => {
     return JSON.parse(savedSession);
   } catch {
     window.localStorage.removeItem(AUTH_SESSION_KEY);
+    return null;
+  }
+};
+
+const readJsonResponse = async (response) => {
+  const text = await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
     return null;
   }
 };
@@ -167,7 +178,11 @@ function App() {
           throw new Error('Session expired');
         }
 
-        const session = await response.json();
+        const session = await readJsonResponse(response);
+
+        if (!session?.token || !session?.user) {
+          throw new Error('Invalid session response');
+        }
 
         if (isMounted) {
           window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
@@ -215,7 +230,11 @@ function App() {
           throw new Error('Failed to load todos');
         }
 
-        const savedTodos = await response.json();
+        const savedTodos = await readJsonResponse(response);
+
+        if (!Array.isArray(savedTodos)) {
+          throw new Error('Invalid todo response');
+        }
 
         if (isMounted) {
           setTodos(savedTodos);
