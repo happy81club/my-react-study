@@ -1,0 +1,44 @@
+[
+  {
+    "id": "seed-react-study",
+    "userId": "guest",
+    "text": "React 공부하기",
+    "date": "2026-07-07",
+    "done": false
+  },
+  {
+    "id": "seed-blog-write",
+    "userId": "guest",
+    "text": "블로그 글쓰기",
+    "date": "2026-07-07",
+    "done": false
+  },
+  {
+    "id": "e5d69a24-1bb3-491f-82db-3bb18c53c217",
+    "userId": "c9ca9d4d-1602-424e-8c24-f9e1e5bb09ea",
+    "text": "바이브코딩 시작",
+    "date": "2026-07-06",
+    "done": true
+  },
+  {
+    "id": "2e478148-bf5d-4124-ae0b-c3b0ea719bff",
+    "userId": "c9ca9d4d-1602-424e-8c24-f9e1e5bb09ea",
+    "text": "바이브코딩2일차",
+    "date": "2026-07-07",
+    "done": false
+  },
+  {
+    "id": "d486139a-8e19-4ebe-9ed2-d25528e8d4cb",
+    "userId": "c9ca9d4d-1602-424e-8c24-f9e1e5bb09ea",
+    "text": "이력서제출1건",
+    "date": "2026-07-07",
+    "done": false
+  },
+  {
+    "id": "27f79f68-360d-43aa-a918-18895a75a38b",
+    "userId": "c9ca9d4d-1602-424e-8c24-f9e1e5bb09ea",
+    "text": "바이브코딩3일차",
+    "date": "2026-07-08",
+    "done": false
+  }
+]

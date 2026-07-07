@@ -1,8 +1,9 @@
 ﻿import { useEffect, useState } from 'react';
 import './App.css';
+import LoginPage, { AUTH_SESSION_KEY } from './LoginPage.jsx';
 
-// 로컬 스토리지에 사용될 키 이름 지정
-const STORAGE_KEY = 'my-react-study-todos';
+// 개발 서버 프록시를 통해 JSON 파일 저장 API에 연결
+const API_URL = '/api/todos';
 
 // 화면에 출력할 문자열을 모아둔 객체
 // 다국어 지원이나 텍스트 변경 시 이곳만 수정하면 됨
@@ -14,6 +15,8 @@ const copy = {
   completed: '완료 상태를 변경했어요.',
   saved: '목록이 저장되었습니다.',
   close: '알림 닫기',
+  loadFailed: '저장된 목록을 불러오지 못했어요.',
+  saveFailed: '목록 저장에 실패했어요.',
   eyebrow: '오늘의 집중',
   title: '나의 할 일 목록',
   subtitle: '작게 적고, 가볍게 끝내는 하루의 체크리스트',
@@ -25,6 +28,28 @@ const copy = {
   openTasks: '남은 할 일',
   delete: '삭제',
   empty: '오늘 할 일을 입력해 주세요',
+};
+
+// 로컬 스토리지에 사용할 키
+const STORAGE_KEY = 'todos_v1';
+
+const readSavedSession = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const savedSession = window.localStorage.getItem(AUTH_SESSION_KEY);
+
+  if (!savedSession) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(savedSession);
+  } catch {
+    window.localStorage.removeItem(AUTH_SESSION_KEY);
+    return null;
+  }
 };
 
 // 오늘 날짜를 YYYY-MM-DD 형식으로 반환
@@ -54,28 +79,11 @@ function App() {
   // notification: 화면에 표시할 상태 메시지
   // notificationPos: 알림 표시 위치 좌표
   // calendarMonth: 달력에서 현재 보여줄 달
+  const [authSession, setAuthSession] = useState(readSavedSession);
+  const [isCheckingSession, setIsCheckingSession] = useState(() => Boolean(readSavedSession()));
   const [selectedDate, setSelectedDate] = useState(getToday());
-  const [todos, setTodos] = useState(() => {
-    if (typeof window === 'undefined') {
-      return copy.initialTodos.map((text) => ({ id: generateId(), text, date: getToday(), done: false }));
-    }
-
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored).map((item) => ({
-          id: item.id || generateId(),
-          text: item.text,
-          date: item.date || getToday(),
-          done: item.done ?? false,
-        }));
-      } catch {
-        return copy.initialTodos.map((text) => ({ id: generateId(), text, date: getToday(), done: false }));
-      }
-    }
-
-    return copy.initialTodos.map((text) => ({ id: generateId(), text, date: getToday(), done: false }));
-  });
+  const [todos, setTodos] = useState([]);
+  const [isLoadingTodos, setIsLoadingTodos] = useState(true);
   const [text, setText] = useState('');
   const [notification, setNotification] = useState('');
   const [notificationPos, setNotificationPos] = useState(null);
@@ -91,6 +99,7 @@ function App() {
   const remainingCount = visibleTodos.filter((todo) => !todo.done).length;
   const addedCount = visibleTodos.length;
   const todosByDate = new Set(todos.map((todo) => todo.date));
+  const currentUser = authSession?.user;
 
   // 현재 달력 페이지의 년/월 정보 계산
   const calendarYear = calendarMonth.getFullYear();
@@ -129,18 +138,129 @@ function App() {
 
   const formatMonthLabel = () => `${calendarYear}년 ${calendarMonthIndex + 1}월`;
 
-  // 선택한 날짜가 바뀌면 해당 날짜가 속한 달을 달력에 보여줌
-  useEffect(() => {
-    const selected = new Date(selectedDate);
+  const selectDate = (dateString) => {
+    const selected = new Date(dateString);
+    setSelectedDate(dateString);
     setCalendarMonth(new Date(selected.getFullYear(), selected.getMonth(), 1));
-  }, [selectedDate]);
+  };
 
-  // todos 상태가 변경될 때마다 로컬 스토리지에 저장
+  const authHeaders = authSession?.token
+    ? { Authorization: `Bearer ${authSession.token}` }
+    : {};
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+    if (!authSession?.token) {
+      return undefined;
     }
-  }, [todos]);
+
+    let isMounted = true;
+
+    const checkSession = async () => {
+      try {
+        const response = await fetch('/api/session', {
+          headers: {
+            Authorization: `Bearer ${authSession.token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Session expired');
+        }
+
+        const session = await response.json();
+
+        if (isMounted) {
+          window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+          setAuthSession(session);
+        }
+      } catch {
+        if (isMounted) {
+          window.localStorage.removeItem(AUTH_SESSION_KEY);
+          setAuthSession(null);
+          setTodos([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingSession(false);
+        }
+      }
+    };
+
+    checkSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authSession?.token]);
+
+  // 서버의 JSON 파일에서 투두 목록을 불러옴
+  useEffect(() => {
+    if (!authSession?.token || isCheckingSession) {
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const loadTodos = async () => {
+      setIsLoadingTodos(true);
+
+      try {
+        const response = await fetch(API_URL, {
+          headers: {
+            Authorization: `Bearer ${authSession.token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load todos');
+        }
+
+        const savedTodos = await response.json();
+
+        if (isMounted) {
+          setTodos(savedTodos);
+        }
+      } catch {
+        if (isMounted) {
+          setTodos(copy.initialTodos.map((item) => ({ id: generateId(), text: item, date: getToday(), done: false })));
+          setNotification(copy.loadFailed);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingTodos(false);
+        }
+      }
+    };
+
+    loadTodos();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authSession?.token, isCheckingSession]);
+
+  const saveTodos = async (nextTodos) => {
+    const previousTodos = todos;
+    setTodos(nextTodos);
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+        },
+        body: JSON.stringify(nextTodos),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save todos');
+      }
+    } catch {
+      setTodos(previousTodos);
+      setNotification(copy.saveFailed);
+    }
+  };
 
   // 화면에 알림 메시지를 표시하고 위치를 잡음
   // 알림 메시지를 화면에 노출하고, 알림 위치를 anchor 요소 기준으로 설정
@@ -191,7 +311,7 @@ function App() {
       return;
     }
 
-    setTodos([...todos, { id: generateId(), text: trimmedText, date: selectedDate, done: false }]);
+    saveTodos([...todos, { id: generateId(), userId: currentUser.id, text: trimmedText, date: selectedDate, done: false }]);
     setText('');
     showNotification(copy.added, anchor);
   };
@@ -204,7 +324,7 @@ function App() {
 
   // 삭제 버튼 클릭 시 해당 투두를 제거
   const onDelete = (targetId, anchor) => {
-    setTodos(todos.filter((todo) => todo.id !== targetId));
+    saveTodos(todos.filter((todo) => todo.id !== targetId));
     showNotification(copy.removed, anchor);
   };
 
@@ -216,7 +336,7 @@ function App() {
       return;
     }
 
-    setTodos(
+    saveTodos(
       todos.map((todo) =>
         todo.id === targetId
           ? { ...todo, done: !todo.done }
@@ -228,8 +348,36 @@ function App() {
 
   // 오늘 버튼이나 초기 상태에서 선택 날짜를 오늘로 이동
   const onToday = () => {
-    setSelectedDate(getToday());
+    selectDate(getToday());
   };
+
+  const onLogout = async () => {
+    if (authSession?.token) {
+      await fetch('/api/logout', {
+        method: 'POST',
+        headers: authHeaders,
+      }).catch(() => {});
+    }
+
+    window.localStorage.removeItem(AUTH_SESSION_KEY);
+    setAuthSession(null);
+    setTodos([]);
+    setIsLoadingTodos(false);
+  };
+
+  if (isCheckingSession) {
+    return (
+      <main className="App">
+        <section className="auth-shell">
+          <p className="empty-state">로그인 상태를 확인하는 중입니다.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginPage onLogin={setAuthSession} />;
+  }
 
   // 앱 UI 렌더링
   return (
@@ -248,12 +396,18 @@ function App() {
           }
         >
           <span>{notification}</span>
+          <button type="button" className="close-btn" onClick={closeNotification} aria-label={copy.close}>
+            ×
+          </button>
         </div>
       )}
 
       <section className="todo-shell" aria-labelledby="todo-title">
         <div className="todo-header">
-          <span className="eyebrow">{copy.eyebrow}</span>
+          <div className="user-bar">
+            <span className="eyebrow">{currentUser.name}님의 {copy.eyebrow}</span>
+            <button type="button" onClick={onLogout}>로그아웃</button>
+          </div>
           <h1 id="todo-title">{copy.title}</h1>
           <p>{copy.subtitle}</p>
         </div>
@@ -285,7 +439,7 @@ function App() {
                   key={`${dateString || 'empty'}-${index}`}
                   type="button"
                   className={`calendar-cell ${dateString ? '' : 'calendar-empty'} ${hasTodo ? 'calendar-has-todo' : ''} ${isSelected ? 'calendar-selected' : ''} ${isToday ? 'calendar-today' : ''}`}
-                  onClick={() => dateString && setSelectedDate(dateString)}
+                  onClick={() => dateString && selectDate(dateString)}
                   disabled={!dateString}
                 >
                   <span>{dateString ? Number(dateString.slice(-2)) : ''}</span>
@@ -298,8 +452,13 @@ function App() {
 
         <form className="input-area" onSubmit={onSubmit}>
           <div className="selected-date-display">
-            <span>선택한 날짜</span>
-            <strong>{selectedDate}</strong>
+            <div>
+              <span>선택한 날짜</span>
+              <strong>{selectedDate}</strong>
+            </div>
+            <button type="button" className="today-btn" onClick={onToday}>
+              오늘
+            </button>
           </div>
           <div className="input-row">
             <input
@@ -330,7 +489,9 @@ function App() {
           </div>
         </div>
 
-        {visibleTodos.length > 0 ? (
+        {isLoadingTodos ? (
+          <p className="empty-state">저장된 할 일을 불러오는 중입니다.</p>
+        ) : visibleTodos.length > 0 ? (
           <ul className="todo-list">
             {visibleTodos.map((todo) => (
               <li key={todo.id}>
