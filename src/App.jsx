@@ -13,6 +13,7 @@ const copy = {
   added: '새 할 일을 추가했어요.',
   removed: '할 일을 삭제했어요.',
   completed: '완료 상태를 변경했어요.',
+  edited: '할 일을 수정했어요.',
   saved: '목록이 저장되었습니다.',
   close: '알림 닫기',
   loadFailed: '저장된 목록을 불러오지 못했어요.',
@@ -25,9 +26,13 @@ const copy = {
   selectedDate: '할 일 날짜',
   add: '추가',
   save: '저장',
+  edit: '수정',
+  cancel: '취소',
   openTasks: '남은 할 일',
+  showOpenOnly: '미완료만 보기',
   delete: '삭제',
   empty: '오늘 할 일을 입력해 주세요',
+  emptyFiltered: '남은 할 일이 없습니다.',
 };
 
 const readSavedSession = () => {
@@ -96,6 +101,9 @@ function App() {
   const [todos, setTodos] = useState([]);
   const [isLoadingTodos, setIsLoadingTodos] = useState(true);
   const [text, setText] = useState('');
+  const [showOpenOnly, setShowOpenOnly] = useState(false);
+  const [editingTodoId, setEditingTodoId] = useState(null);
+  const [editingText, setEditingText] = useState('');
   const [notification, setNotification] = useState('');
   const [notificationPos, setNotificationPos] = useState(null);
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -105,10 +113,13 @@ function App() {
 
   // 선택한 날짜에 해당하는 투두만 화면에 표시
   // today 변수는 미래 일정 판단과 today 기준 표시용
-  const visibleTodos = todos.filter((todo) => todo.date === selectedDate);
+  const selectedDateTodos = todos.filter((todo) => todo.date === selectedDate);
+  const visibleTodos = showOpenOnly
+    ? selectedDateTodos.filter((todo) => !todo.done)
+    : selectedDateTodos;
   const today = getToday();
-  const remainingCount = visibleTodos.filter((todo) => !todo.done).length;
-  const addedCount = visibleTodos.length;
+  const remainingCount = selectedDateTodos.filter((todo) => !todo.done).length;
+  const addedCount = selectedDateTodos.length;
   const todosByDate = new Set(todos.map((todo) => todo.date));
   const currentUser = authSession?.user;
 
@@ -344,6 +355,10 @@ function App() {
   // 삭제 버튼 클릭 시 해당 투두를 제거
   const onDelete = (targetId, anchor) => {
     saveTodos(todos.filter((todo) => todo.id !== targetId));
+    if (editingTodoId === targetId) {
+      setEditingTodoId(null);
+      setEditingText('');
+    }
     showNotification(copy.removed, anchor);
   };
 
@@ -363,6 +378,46 @@ function App() {
       )
     );
     showNotification(copy.completed, anchor);
+  };
+
+  const onStartEdit = (todo) => {
+    setEditingTodoId(todo.id);
+    setEditingText(todo.text);
+  };
+
+  const onCancelEdit = () => {
+    setEditingTodoId(null);
+    setEditingText('');
+  };
+
+  const onSaveEdit = (targetId, anchor) => {
+    const trimmedText = editingText.trim();
+
+    if (!trimmedText) {
+      showNotification(copy.emptyInput, anchor);
+      return;
+    }
+
+    saveTodos(
+      todos.map((todo) =>
+        todo.id === targetId
+          ? { ...todo, text: trimmedText }
+          : todo
+      )
+    );
+    setEditingTodoId(null);
+    setEditingText('');
+    showNotification(copy.edited, anchor);
+  };
+
+  const onEditKeyDown = (event, targetId) => {
+    if (event.key === 'Enter') {
+      onSaveEdit(targetId, event.currentTarget);
+    }
+
+    if (event.key === 'Escape') {
+      onCancelEdit();
+    }
   };
 
   // 오늘 버튼이나 초기 상태에서 선택 날짜를 오늘로 이동
@@ -508,35 +563,72 @@ function App() {
           </div>
         </div>
 
+        <div className="filter-bar">
+          <label className="filter-toggle">
+            <input
+              type="checkbox"
+              checked={showOpenOnly}
+              onChange={(event) => setShowOpenOnly(event.target.checked)}
+            />
+            <span>{copy.showOpenOnly}</span>
+          </label>
+        </div>
+
         {isLoadingTodos ? (
           <p className="empty-state">저장된 할 일을 불러오는 중입니다.</p>
         ) : visibleTodos.length > 0 ? (
           <ul className="todo-list">
             {visibleTodos.map((todo) => (
               <li key={todo.id}>
-                <div className={`todo-content ${todo.done ? 'completed' : ''}`}>
-                  <span>{todo.text}</span>
-                  <time dateTime={todo.date}>{todo.date}</time>
-                </div>
-                <div className="todo-actions">
-                  {todo.date <= today && (
-                    <button
-                      className="complete-btn"
-                      type="button"
-                      onClick={(event) => onToggleComplete(todo.id, event.currentTarget)}
-                    >
-                      {todo.done ? '취소' : '완료'}
-                    </button>
-                  )}
-                  <button className="delete-btn" type="button" onClick={(event) => onDelete(todo.id, event.currentTarget)} disabled={todo.done}>
-                    {copy.delete}
-                  </button>
-                </div>
+                {editingTodoId === todo.id ? (
+                  <div className="todo-edit-row">
+                    <input
+                      className="todo-edit-input"
+                      value={editingText}
+                      onChange={(event) => setEditingText(event.target.value)}
+                      onKeyDown={(event) => onEditKeyDown(event, todo.id)}
+                      aria-label="할 일 수정"
+                      autoFocus
+                    />
+                    <div className="todo-actions">
+                      <button className="save-edit-btn" type="button" onClick={(event) => onSaveEdit(todo.id, event.currentTarget)}>
+                        {copy.save}
+                      </button>
+                      <button className="cancel-edit-btn" type="button" onClick={onCancelEdit}>
+                        {copy.cancel}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className={`todo-content ${todo.done ? 'completed' : ''}`}>
+                      <span>{todo.text}</span>
+                      <time dateTime={todo.date}>{todo.date}</time>
+                    </div>
+                    <div className="todo-actions">
+                      <button className="edit-btn" type="button" onClick={() => onStartEdit(todo)}>
+                        {copy.edit}
+                      </button>
+                      {todo.date <= today && (
+                        <button
+                          className="complete-btn"
+                          type="button"
+                          onClick={(event) => onToggleComplete(todo.id, event.currentTarget)}
+                        >
+                          {todo.done ? '취소' : '완료'}
+                        </button>
+                      )}
+                      <button className="delete-btn" type="button" onClick={(event) => onDelete(todo.id, event.currentTarget)} disabled={todo.done}>
+                        {copy.delete}
+                      </button>
+                    </div>
+                  </>
+                )}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="empty-state">{copy.empty}</p>
+          <p className="empty-state">{showOpenOnly && addedCount > 0 ? copy.emptyFiltered : copy.empty}</p>
         )}
       </section>
     </main>

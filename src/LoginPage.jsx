@@ -17,7 +17,7 @@ async function readJsonResponse(response) {
 }
 
 function LoginPage({ onLogin }) {
-  const [mode, setMode] = useState('signup');
+  const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -84,17 +84,17 @@ function LoginPage({ onLogin }) {
         <div className="auth-tabs" role="tablist" aria-label="인증 방식">
           <button
             type="button"
-            className={isSignup ? 'active' : ''}
-            onClick={() => switchMode('signup')}
-          >
-            가입
-          </button>
-          <button
-            type="button"
             className={!isSignup ? 'active' : ''}
             onClick={() => switchMode('login')}
           >
             로그인
+          </button>
+          <button
+            type="button"
+            className={isSignup ? 'active' : ''}
+            onClick={() => switchMode('signup')}
+          >
+            가입
           </button>
         </div>
 
