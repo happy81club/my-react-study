@@ -44,7 +44,11 @@ export async function onRequestPost({ request, env }) {
       writeSessions(env, [...sessions, session]),
     ]);
 
-    return sendJson({ token: session.token, user: publicUser(user) }, 201);
+    return sendJson({
+      token: session.token,
+      user: publicUser(user),
+      expiresAt: session.expiresAt,
+    }, 201);
   } catch (error) {
     return handleError(error);
   }

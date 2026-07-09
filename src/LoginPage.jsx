@@ -49,13 +49,14 @@ function LoginPage({ onLogin }) {
         throw new Error(data.message || `요청에 실패했습니다. (${response.status})`);
       }
 
-      if (!data.token || !data.user) {
+      if (!data.token || !data.user || !data.expiresAt) {
         throw new Error('로그인 응답이 올바르지 않습니다.');
       }
 
       const session = {
         token: data.token,
         user: data.user,
+        expiresAt: data.expiresAt,
       };
 
       window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));

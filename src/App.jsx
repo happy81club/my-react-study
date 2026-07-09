@@ -191,7 +191,7 @@ function App() {
 
         const session = await readJsonResponse(response);
 
-        if (!session?.token || !session?.user) {
+        if (!session?.token || !session?.user || !session?.expiresAt) {
           throw new Error('Invalid session response');
         }
 
@@ -218,6 +218,28 @@ function App() {
       isMounted = false;
     };
   }, [authSession?.token]);
+
+  useEffect(() => {
+    if (!authSession?.expiresAt) {
+      return undefined;
+    }
+
+    const remainingTime = Date.parse(authSession.expiresAt) - Date.now();
+    const expireSession = () => {
+      window.localStorage.removeItem(AUTH_SESSION_KEY);
+      setAuthSession(null);
+      setTodos([]);
+      setIsLoadingTodos(false);
+    };
+
+    if (remainingTime <= 0) {
+      expireSession();
+      return undefined;
+    }
+
+    const timer = window.setTimeout(expireSession, remainingTime);
+    return () => window.clearTimeout(timer);
+  }, [authSession?.expiresAt]);
 
   // 서버의 JSON 파일에서 투두 목록을 불러옴
   useEffect(() => {

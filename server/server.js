@@ -14,6 +14,7 @@ const todosFile = path.join(dataDir, 'todos.json');
 const usersFile = path.join(dataDir, 'users.json');
 const sessionsFile = path.join(dataDir, 'sessions.json');
 const port = process.env.PORT || 3002;
+const SESSION_DURATION_MS = 30 * 60 * 1000;
 
 // todos.json 파일이 아직 없을 때 넣을 기본 데이터.
 // 로그인 기능이 생긴 뒤에는 실제 화면에서 사용자별 데이터만 필터링해서 내려준다.
@@ -140,11 +141,25 @@ function isTodoList(value) {
 // 로그인 성공 시 sessions.json에 저장할 세션 객체를 만든다.
 // token은 이후 Authorization: Bearer <token> 헤더로 들어오며, userId로 실제 사용자를 찾는다.
 function createSession(userId) {
+  const createdAt = new Date();
+
   return {
     token: randomUUID(),
     userId,
-    createdAt: new Date().toISOString(),
+    createdAt: createdAt.toISOString(),
+    expiresAt: new Date(createdAt.getTime() + SESSION_DURATION_MS).toISOString(),
   };
+}
+
+function getSessionExpiration(session) {
+  const expiresAt = Date.parse(session.expiresAt);
+
+  if (Number.isFinite(expiresAt)) {
+    return expiresAt;
+  }
+
+  const createdAt = Date.parse(session.createdAt);
+  return Number.isFinite(createdAt) ? createdAt + SESSION_DURATION_MS : 0;
 }
 
 // Authorization 헤더에서 Bearer 토큰만 꺼낸다.
@@ -166,12 +181,14 @@ async function findSessionUser(request) {
   const [sessions, users] = await Promise.all([readSessions(), readUsers()]);
   const session = sessions.find((item) => item.token === token);
 
-  if (!session) {
+  if (!session || getSessionExpiration(session) <= Date.now()) {
     return null;
   }
 
   const user = users.find((item) => item.id === session.userId);
-  return user ? { token, user } : null;
+  return user
+    ? { token, user, expiresAt: new Date(getSessionExpiration(session)).toISOString() }
+    : null;
 }
 
 // POST /api/signup
@@ -211,7 +228,11 @@ async function handleSignup(request, response) {
     writeUsers([...users, user]),
     writeSessions([...sessions, session]),
   ]);
-  sendJson(response, 201, { token: session.token, user: publicUser(user) });
+  sendJson(response, 201, {
+    token: session.token,
+    user: publicUser(user),
+    expiresAt: session.expiresAt,
+  });
 }
 
 // POST /api/login
@@ -232,7 +253,11 @@ async function handleLogin(request, response) {
   const sessions = await readSessions();
   const session = createSession(user.id);
   await writeSessions([...sessions, session]);
-  sendJson(response, 200, { token: session.token, user: publicUser(user) });
+  sendJson(response, 200, {
+    token: session.token,
+    user: publicUser(user),
+    expiresAt: session.expiresAt,
+  });
 }
 
 // GET /api/session
@@ -248,6 +273,7 @@ async function handleSession(request, response) {
   sendJson(response, 200, {
     token: sessionUser.token,
     user: publicUser(sessionUser.user),
+    expiresAt: sessionUser.expiresAt,
   });
 }
 

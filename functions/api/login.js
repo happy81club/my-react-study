@@ -27,7 +27,11 @@ export async function onRequestPost({ request, env }) {
     const session = createSession(user.id);
     await writeSessions(env, [...sessions, session]);
 
-    return sendJson({ token: session.token, user: publicUser(user) });
+    return sendJson({
+      token: session.token,
+      user: publicUser(user),
+      expiresAt: session.expiresAt,
+    });
   } catch (error) {
     return handleError(error);
   }

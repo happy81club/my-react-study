@@ -16,6 +16,7 @@ export async function onRequestGet({ request, env }) {
     return sendJson({
       token: sessionUser.token,
       user: publicUser(sessionUser.user),
+      expiresAt: sessionUser.expiresAt,
     });
   } catch (error) {
     return handleError(error);

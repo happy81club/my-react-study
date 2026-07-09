@@ -1,6 +1,7 @@
 const USERS_KEY = 'users';
 const SESSIONS_KEY = 'sessions';
 const TODOS_KEY = 'todos';
+const SESSION_DURATION_MS = 30 * 60 * 1000;
 
 function getStore(env) {
   return env.TODO_KV;
@@ -89,11 +90,25 @@ async function hashPassword(password) {
 }
 
 function createSession(userId) {
+  const createdAt = new Date();
+
   return {
     token: crypto.randomUUID(),
     userId,
-    createdAt: new Date().toISOString(),
+    createdAt: createdAt.toISOString(),
+    expiresAt: new Date(createdAt.getTime() + SESSION_DURATION_MS).toISOString(),
   };
+}
+
+function getSessionExpiration(session) {
+  const expiresAt = Date.parse(session.expiresAt);
+
+  if (Number.isFinite(expiresAt)) {
+    return expiresAt;
+  }
+
+  const createdAt = Date.parse(session.createdAt);
+  return Number.isFinite(createdAt) ? createdAt + SESSION_DURATION_MS : 0;
 }
 
 function getBearerToken(request) {
@@ -111,12 +126,14 @@ async function findSessionUser(request, env) {
   const [sessions, users] = await Promise.all([readSessions(env), readUsers(env)]);
   const session = sessions.find((item) => item.token === token);
 
-  if (!session) {
+  if (!session || getSessionExpiration(session) <= Date.now()) {
     return null;
   }
 
   const user = users.find((item) => item.id === session.userId);
-  return user ? { token, user } : null;
+  return user
+    ? { token, user, expiresAt: new Date(getSessionExpiration(session)).toISOString() }
+    : null;
 }
 
 function isTodoList(value) {
