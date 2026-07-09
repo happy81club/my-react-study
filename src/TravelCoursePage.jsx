@@ -33,11 +33,136 @@ const LABEL_POSITIONS = {
 function TravelCoursePage({ onBack, onLogout }) {
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const openRegion = (region) => {
     setSelectedRegion(region);
     setSelectedDistrict('');
+    setSearchText('');
+    setSearchQuery('');
   };
+
+  const openDistrict = (district) => {
+    setSelectedDistrict(district);
+    setSearchText('');
+    setSearchQuery('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const submitSearch = (event) => {
+    event.preventDefault();
+    const keyword = searchText.trim();
+
+    if (!keyword || !selectedRegion || !selectedDistrict) {
+      return;
+    }
+
+    const query = `${selectedRegion.name} ${selectedDistrict} ${keyword}`;
+    setSearchQuery(keyword);
+    window.open(
+      `https://map.naver.com/p/search/${encodeURIComponent(query)}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+  };
+
+  if (selectedRegion && selectedDistrict) {
+    const locationName = `${selectedRegion.name} ${selectedDistrict}`;
+    const fullQuery = `${locationName} ${searchQuery}`.trim();
+    const quickKeywords = ['맛집', '카페', '여행지', '데이트 코스', '아이와 가볼 만한 곳', '현지인 추천'];
+    const searchServices = [
+      {
+        name: '네이버 지도',
+        description: '장소 정보, 리뷰와 영업시간을 확인해요.',
+        href: `https://map.naver.com/p/search/${encodeURIComponent(fullQuery)}`,
+      },
+      {
+        name: '카카오맵',
+        description: '주변 장소와 이동 경로를 함께 살펴봐요.',
+        href: `https://map.kakao.com/link/search/${encodeURIComponent(fullQuery)}`,
+      },
+      {
+        name: '구글 지도',
+        description: '사진과 방문자 리뷰를 비교해 봐요.',
+        href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullQuery)}`,
+      },
+    ];
+
+    return (
+      <main className="App">
+        <section className="travel-shell district-detail-shell" aria-labelledby="district-title">
+          <div className="page-navigation">
+            <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>← {selectedRegion.name} 지역 선택</button>
+            <button type="button" className="text-logout-button" onClick={onLogout}>로그아웃</button>
+          </div>
+
+          <div className="travel-header district-detail-header">
+            <span className="eyebrow">{selectedRegion.name} · Travel search</span>
+            <h1 id="district-title">{selectedDistrict} 여행·맛집 찾기</h1>
+            <p>찾고 싶은 장소나 음식, 여행 테마를 입력하세요.</p>
+          </div>
+
+          <form className="travel-search-form" onSubmit={submitSearch}>
+            <span className="travel-search-location">📍 {locationName}</span>
+            <div className="travel-search-row">
+              <input
+                type="search"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder="예: 한정식, 바다 전망 카페, 가족 여행"
+                aria-label={`${locationName} 여행지와 맛집 검색`}
+                autoFocus
+                required
+              />
+              <button type="submit">네이버 지도 검색</button>
+            </div>
+            <div className="travel-quick-keywords" aria-label="추천 검색어">
+              {quickKeywords.map((keyword) => (
+                <button
+                  type="button"
+                  key={keyword}
+                  onClick={() => {
+                    setSearchText(keyword);
+                    setSearchQuery(keyword);
+                  }}
+                >
+                  {keyword}
+                </button>
+              ))}
+            </div>
+          </form>
+
+          {searchQuery ? (
+            <section className="travel-search-results" aria-live="polite">
+              <div className="travel-search-results-heading">
+                <div>
+                  <span className="eyebrow">Search results</span>
+                  <h2>‘{fullQuery}’ 검색하기</h2>
+                </div>
+                <small>네이버 지도 검색을 열었습니다. 다른 지도에서도 비교할 수 있어요.</small>
+              </div>
+              <div className="travel-search-service-grid">
+                {searchServices.map((service) => (
+                  <a key={service.name} href={service.href} target="_blank" rel="noreferrer">
+                    <strong>{service.name}</strong>
+                    <span>{service.description}</span>
+                    <i>검색 결과 보기 →</i>
+                  </a>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <div className="travel-search-empty">
+              <span>🔎</span>
+              <strong>{selectedDistrict}에서 무엇을 찾아볼까요?</strong>
+              <p>검색어를 입력하거나 추천 검색어를 선택해 보세요.</p>
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
 
   if (selectedRegion) {
     return (
@@ -54,17 +179,11 @@ function TravelCoursePage({ onBack, onLogout }) {
           </div>
           <div className="district-grid">
             {selectedRegion.districts.map((district) => (
-              <button type="button" key={district} className={selectedDistrict === district ? 'selected' : ''} onClick={() => setSelectedDistrict(district)}>
+              <button type="button" key={district} onClick={() => openDistrict(district)}>
                 <span>{district}</span><small>코스 보기 →</small>
               </button>
             ))}
           </div>
-          {selectedDistrict && (
-            <div className="district-selection" role="status">
-              <strong>{selectedRegion.name} {selectedDistrict}</strong>
-              <span>여행지와 맛집 코스를 준비할 지역으로 선택했습니다.</span>
-            </div>
-          )}
         </section>
       </main>
     );

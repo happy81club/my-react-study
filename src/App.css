@@ -358,6 +358,164 @@
   font-size: 13px;
 }
 
+.district-detail-header {
+  margin-bottom: 22px;
+}
+
+.travel-search-form {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  border: 1px solid #fed7aa;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #fff7ed, #ffffff);
+}
+
+.travel-search-location {
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.travel-search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.travel-search-row input {
+  min-width: 0;
+  min-height: 54px;
+  padding: 0 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #17202a;
+  font: inherit;
+  outline: none;
+}
+
+.travel-search-row input:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);
+}
+
+.travel-search-row button {
+  min-width: 150px;
+  padding: 0 22px;
+  border-radius: 14px;
+  background: #ea580c;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.travel-quick-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.travel-quick-keywords button {
+  padding: 8px 11px;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #9a3412;
+  font-size: 12px;
+}
+
+.travel-quick-keywords button:hover {
+  border-color: #fb923c;
+  background: #ffedd5;
+}
+
+.travel-search-results {
+  margin-top: 22px;
+}
+
+.travel-search-results-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.travel-search-results-heading h2 {
+  margin: 3px 0 0;
+  color: #17202a;
+}
+
+.travel-search-results-heading small {
+  color: #64748b;
+}
+
+.travel-search-service-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.travel-search-service-grid a {
+  display: grid;
+  gap: 8px;
+  min-height: 150px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #334155;
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.travel-search-service-grid a:hover {
+  border-color: #fb923c;
+  box-shadow: 0 14px 30px rgba(154, 52, 18, 0.1);
+  transform: translateY(-2px);
+}
+
+.travel-search-service-grid strong {
+  color: #17202a;
+  font-size: 18px;
+}
+
+.travel-search-service-grid span {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.travel-search-service-grid i {
+  align-self: end;
+  color: #ea580c;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.travel-search-empty {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  margin-top: 22px;
+  padding: 48px 20px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 20px;
+  color: #334155;
+  text-align: center;
+}
+
+.travel-search-empty > span {
+  font-size: 28px;
+}
+
+.travel-search-empty p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
 .feature-copy {
   grid-column: 1 / -1;
   display: grid;
@@ -1706,6 +1864,27 @@ button:hover {
 
   .district-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .travel-search-form {
+    padding: 16px;
+  }
+
+  .travel-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .travel-search-row button {
+    min-height: 48px;
+  }
+
+  .travel-search-results-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .travel-search-service-grid {
+    grid-template-columns: 1fr;
   }
 
   .district-selection {
