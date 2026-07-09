@@ -59,7 +59,8 @@ function LoginPage({ onLogin }) {
         expiresAt: data.expiresAt,
       };
 
-      window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+      window.localStorage.removeItem(AUTH_SESSION_KEY);
+      window.sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
       onLogin(session);
     } catch (error) {
       setMessage(error.message);

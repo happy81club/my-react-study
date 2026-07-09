@@ -1,4 +1,5 @@
 import {
+  extendSession,
   findSessionUser,
   handleError,
   publicUser,
@@ -13,10 +14,12 @@ export async function onRequestGet({ request, env }) {
       return sendJson({ message: '세션이 만료되었습니다.' }, 401);
     }
 
+    const expiresAt = await extendSession(env, sessionUser.token);
+
     return sendJson({
       token: sessionUser.token,
       user: publicUser(sessionUser.user),
-      expiresAt: sessionUser.expiresAt,
+      expiresAt,
     });
   } catch (error) {
     return handleError(error);

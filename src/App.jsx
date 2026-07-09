@@ -1,9 +1,12 @@
 ﻿import { useEffect, useState } from 'react';
 import './App.css';
+import EnglishMemoryPage from './EnglishMemoryPage.jsx';
 import LoginPage, { AUTH_SESSION_KEY } from './LoginPage.jsx';
 
 // 개발 서버 프록시를 통해 JSON 파일 저장 API에 연결
 const API_URL = '/api/todos';
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const SESSION_REFRESH_INTERVAL_MS = 60 * 1000;
 
 // 화면에 출력할 문자열을 모아둔 객체
 // 다국어 지원이나 텍스트 변경 시 이곳만 수정하면 됨
@@ -40,7 +43,7 @@ const readSavedSession = () => {
     return null;
   }
 
-  const savedSession = window.localStorage.getItem(AUTH_SESSION_KEY);
+  const savedSession = window.sessionStorage.getItem(AUTH_SESSION_KEY);
 
   if (!savedSession) {
     return null;
@@ -49,7 +52,7 @@ const readSavedSession = () => {
   try {
     return JSON.parse(savedSession);
   } catch {
-    window.localStorage.removeItem(AUTH_SESSION_KEY);
+    window.sessionStorage.removeItem(AUTH_SESSION_KEY);
     return null;
   }
 };
@@ -97,6 +100,7 @@ function App() {
   // calendarMonth: 달력에서 현재 보여줄 달
   const [authSession, setAuthSession] = useState(readSavedSession);
   const [isCheckingSession, setIsCheckingSession] = useState(() => Boolean(readSavedSession()));
+  const [activePage, setActivePage] = useState('home');
   const [selectedDate, setSelectedDate] = useState(getToday());
   const [todos, setTodos] = useState([]);
   const [isLoadingTodos, setIsLoadingTodos] = useState(true);
@@ -196,13 +200,14 @@ function App() {
         }
 
         if (isMounted) {
-          window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+          window.sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
           setAuthSession(session);
         }
       } catch {
         if (isMounted) {
-          window.localStorage.removeItem(AUTH_SESSION_KEY);
+          window.sessionStorage.removeItem(AUTH_SESSION_KEY);
           setAuthSession(null);
+          setActivePage('home');
           setTodos([]);
         }
       } finally {
@@ -220,30 +225,80 @@ function App() {
   }, [authSession?.token]);
 
   useEffect(() => {
-    if (!authSession?.expiresAt) {
+    if (!authSession?.token) {
       return undefined;
     }
 
-    const remainingTime = Date.parse(authSession.expiresAt) - Date.now();
+    let idleTimer;
+    let lastRefreshAt = Date.now();
+    let isRefreshing = false;
+
     const expireSession = () => {
-      window.localStorage.removeItem(AUTH_SESSION_KEY);
+      fetch('/api/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authSession.token}` },
+      }).catch(() => {});
+      window.sessionStorage.removeItem(AUTH_SESSION_KEY);
       setAuthSession(null);
+      setActivePage('home');
       setTodos([]);
       setIsLoadingTodos(false);
     };
 
-    if (remainingTime <= 0) {
-      expireSession();
-      return undefined;
-    }
+    const refreshSession = async () => {
+      if (isRefreshing || Date.now() - lastRefreshAt < SESSION_REFRESH_INTERVAL_MS) {
+        return;
+      }
 
-    const timer = window.setTimeout(expireSession, remainingTime);
-    return () => window.clearTimeout(timer);
-  }, [authSession?.expiresAt]);
+      isRefreshing = true;
+
+      try {
+        const response = await fetch('/api/session', {
+          headers: { Authorization: `Bearer ${authSession.token}` },
+        });
+
+        if (!response.ok) {
+          expireSession();
+          return;
+        }
+
+        const session = await readJsonResponse(response);
+
+        if (session?.token && session?.user && session?.expiresAt) {
+          window.sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+          setAuthSession(session);
+          lastRefreshAt = Date.now();
+        }
+      } catch {
+        // 네트워크가 잠시 끊긴 경우 다음 사용자 활동 때 다시 갱신한다.
+      } finally {
+        isRefreshing = false;
+      }
+    };
+
+    const registerActivity = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(expireSession, IDLE_TIMEOUT_MS);
+      refreshSession();
+    };
+
+    const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, registerActivity, { passive: true });
+    });
+    registerActivity();
+
+    return () => {
+      window.clearTimeout(idleTimer);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, registerActivity);
+      });
+    };
+  }, [authSession?.token]);
 
   // 서버의 JSON 파일에서 투두 목록을 불러옴
   useEffect(() => {
-    if (!authSession?.token || isCheckingSession) {
+    if (!authSession?.token || isCheckingSession || activePage !== 'todos') {
       return undefined;
     }
 
@@ -289,7 +344,7 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, [authSession?.token, isCheckingSession]);
+  }, [authSession?.token, isCheckingSession, activePage]);
 
   const saveTodos = async (nextTodos) => {
     const previousTodos = todos;
@@ -455,8 +510,9 @@ function App() {
       }).catch(() => {});
     }
 
-    window.localStorage.removeItem(AUTH_SESSION_KEY);
+    window.sessionStorage.removeItem(AUTH_SESSION_KEY);
     setAuthSession(null);
+    setActivePage('home');
     setTodos([]);
     setIsLoadingTodos(false);
   };
@@ -472,7 +528,62 @@ function App() {
   }
 
   if (!currentUser) {
-    return <LoginPage onLogin={setAuthSession} />;
+    return (
+      <LoginPage
+        onLogin={(session) => {
+          setActivePage('home');
+          setAuthSession(session);
+        }}
+      />
+    );
+  }
+
+  if (activePage === 'home') {
+    return (
+      <main className="App">
+        <section className="home-shell" aria-labelledby="home-title">
+          <div className="home-header">
+            <div className="user-bar">
+              <span className="eyebrow">{currentUser.name}님, 반가워요</span>
+              <button type="button" onClick={onLogout}>로그아웃</button>
+            </div>
+            <h1 id="home-title">오늘은 무엇을 해볼까요?</h1>
+            <p>원하는 기능을 선택해 바로 시작해 보세요.</p>
+          </div>
+
+          <div className="feature-grid" aria-label="기능 목록">
+            <button type="button" className="feature-card todo-feature" onClick={() => setActivePage('todos')}>
+              <span className="feature-icon" aria-hidden="true">✓</span>
+              <span className="feature-copy">
+                <strong>나의 할 일 목록</strong>
+                <small>날짜별 할 일을 계획하고 완료해요.</small>
+              </span>
+              <span className="feature-arrow" aria-hidden="true">→</span>
+            </button>
+
+            <button type="button" className="feature-card english-feature" onClick={() => setActivePage('english')}>
+              <span className="feature-icon" aria-hidden="true">A</span>
+              <span className="feature-copy">
+                <strong>영어 암기</strong>
+                <small>영어 단어를 차곡차곡 익혀요.</small>
+              </span>
+              <span className="feature-arrow" aria-hidden="true">→</span>
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (activePage === 'english') {
+    return (
+      <EnglishMemoryPage
+        user={currentUser}
+        token={authSession.token}
+        onBack={() => setActivePage('home')}
+        onLogout={onLogout}
+      />
+    );
   }
 
   // 앱 UI 렌더링
@@ -500,6 +611,9 @@ function App() {
 
       <section className="todo-shell" aria-labelledby="todo-title">
         <div className="todo-header">
+          <button type="button" className="home-button" onClick={() => setActivePage('home')}>
+            ← 메인으로
+          </button>
           <div className="user-bar">
             <span className="eyebrow">{currentUser.name}님의 {copy.eyebrow}</span>
             <button type="button" onClick={onLogout}>로그아웃</button>

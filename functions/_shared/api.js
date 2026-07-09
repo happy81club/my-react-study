@@ -1,6 +1,7 @@
 const USERS_KEY = 'users';
 const SESSIONS_KEY = 'sessions';
 const TODOS_KEY = 'todos';
+const WORDS_KEY = 'words';
 const SESSION_DURATION_MS = 30 * 60 * 1000;
 
 function getStore(env) {
@@ -50,6 +51,14 @@ async function readTodos(env) {
 
 async function writeTodos(env, todos) {
   await writeList(env, TODOS_KEY, todos);
+}
+
+async function readWords(env) {
+  return readList(env, WORDS_KEY);
+}
+
+async function writeWords(env, words) {
+  await writeList(env, WORDS_KEY, words);
 }
 
 function sendJson(data, status = 200) {
@@ -111,6 +120,21 @@ function getSessionExpiration(session) {
   return Number.isFinite(createdAt) ? createdAt + SESSION_DURATION_MS : 0;
 }
 
+async function extendSession(env, token) {
+  const sessions = await readSessions(env);
+  const sessionIndex = sessions.findIndex((item) => item.token === token);
+
+  if (sessionIndex < 0 || getSessionExpiration(sessions[sessionIndex]) <= Date.now()) {
+    return null;
+  }
+
+  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS).toISOString();
+  await writeSessions(env, sessions.map((session, index) => (
+    index === sessionIndex ? { ...session, expiresAt } : session
+  )));
+  return expiresAt;
+}
+
 function getBearerToken(request) {
   const authorization = request.headers.get('Authorization') || '';
   return authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
@@ -147,6 +171,17 @@ function isTodoList(value) {
   ));
 }
 
+function isWordList(value) {
+  return Array.isArray(value) && value.every((word) => (
+    word
+    && typeof word.id === 'string'
+    && typeof word.userId === 'string'
+    && typeof word.english === 'string'
+    && typeof word.korean === 'string'
+    && typeof word.date === 'string'
+  ));
+}
+
 function handleError(error) {
   if (error.message === 'TODO_KV binding is missing') {
     return sendJson({ message: 'Cloudflare KV binding TODO_KV is missing.' }, 500);
@@ -158,19 +193,23 @@ function handleError(error) {
 
 export {
   createSession,
+  extendSession,
   findSessionUser,
   getBearerToken,
   handleError,
   hashPassword,
   isTodoList,
+  isWordList,
   normalizeEmail,
   publicUser,
   readJson,
   readSessions,
   readTodos,
   readUsers,
+  readWords,
   sendJson,
   writeSessions,
   writeTodos,
   writeUsers,
+  writeWords,
 };

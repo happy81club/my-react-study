@@ -13,6 +13,7 @@ const dataDir = path.resolve(__dirname, '..', 'data');
 const todosFile = path.join(dataDir, 'todos.json');
 const usersFile = path.join(dataDir, 'users.json');
 const sessionsFile = path.join(dataDir, 'sessions.json');
+const wordsFile = path.join(dataDir, 'words.json');
 const port = process.env.PORT || 3002;
 const SESSION_DURATION_MS = 30 * 60 * 1000;
 
@@ -76,6 +77,8 @@ const readUsers = () => readJsonFile(usersFile, []);
 const writeUsers = (users) => writeJsonFile(usersFile, users);
 const readSessions = () => readJsonFile(sessionsFile, []);
 const writeSessions = (sessions) => writeJsonFile(sessionsFile, sessions);
+const readWords = () => readJsonFile(wordsFile, []);
+const writeWords = (words) => writeJsonFile(wordsFile, words);
 
 // Node 기본 http 서버는 Express처럼 body 파싱을 자동으로 해주지 않는다.
 // 요청 스트림을 끝까지 모은 뒤 JSON으로 파싱해서 핸들러가 사용할 객체로 돌려준다.
@@ -138,6 +141,17 @@ function isTodoList(value) {
   ));
 }
 
+function isWordList(value) {
+  return Array.isArray(value) && value.every((word) => (
+    word
+    && typeof word.id === 'string'
+    && typeof word.userId === 'string'
+    && typeof word.english === 'string'
+    && typeof word.korean === 'string'
+    && typeof word.date === 'string'
+  ));
+}
+
 // 로그인 성공 시 sessions.json에 저장할 세션 객체를 만든다.
 // token은 이후 Authorization: Bearer <token> 헤더로 들어오며, userId로 실제 사용자를 찾는다.
 function createSession(userId) {
@@ -160,6 +174,21 @@ function getSessionExpiration(session) {
 
   const createdAt = Date.parse(session.createdAt);
   return Number.isFinite(createdAt) ? createdAt + SESSION_DURATION_MS : 0;
+}
+
+async function extendSession(token) {
+  const sessions = await readSessions();
+  const sessionIndex = sessions.findIndex((item) => item.token === token);
+
+  if (sessionIndex < 0 || getSessionExpiration(sessions[sessionIndex]) <= Date.now()) {
+    return null;
+  }
+
+  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS).toISOString();
+  await writeSessions(sessions.map((session, index) => (
+    index === sessionIndex ? { ...session, expiresAt } : session
+  )));
+  return expiresAt;
 }
 
 // Authorization 헤더에서 Bearer 토큰만 꺼낸다.
@@ -270,10 +299,12 @@ async function handleSession(request, response) {
     return;
   }
 
+  const expiresAt = await extendSession(sessionUser.token);
+
   sendJson(response, 200, {
     token: sessionUser.token,
     user: publicUser(sessionUser.user),
-    expiresAt: sessionUser.expiresAt,
+    expiresAt,
   });
 }
 
@@ -328,6 +359,40 @@ async function handleTodos(request, response) {
   sendJson(response, 405, { message: 'Method not allowed' });
 }
 
+async function handleWords(request, response) {
+  const sessionUser = await findSessionUser(request);
+
+  if (!sessionUser) {
+    sendJson(response, 401, { message: 'Login is required.' });
+    return;
+  }
+
+  const userId = sessionUser.user.id;
+
+  if (request.method === 'GET') {
+    const words = await readWords();
+    sendJson(response, 200, words.filter((word) => word.userId === userId));
+    return;
+  }
+
+  if (request.method === 'PUT') {
+    const nextUserWords = await readJsonBody(request);
+
+    if (!isWordList(nextUserWords) || nextUserWords.some((word) => word.userId !== userId)) {
+      sendJson(response, 400, { message: 'Invalid word data' });
+      return;
+    }
+
+    const words = await readWords();
+    const otherWords = words.filter((word) => word.userId !== userId);
+    await writeWords([...otherWords, ...nextUserWords]);
+    sendJson(response, 200, nextUserWords);
+    return;
+  }
+
+  sendJson(response, 405, { message: 'Method not allowed' });
+}
+
 // Node 기본 http 서버의 단일 진입점.
 // URL과 method를 직접 확인해서 각 API 핸들러로 분기한다.
 const server = createServer(async (request, response) => {
@@ -370,6 +435,11 @@ const server = createServer(async (request, response) => {
     // 할 일 API는 handleTodos 내부에서 GET/PUT을 다시 구분한다.
     if (url.pathname === '/api/todos') {
       await handleTodos(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/words') {
+      await handleWords(request, response);
       return;
     }
 
