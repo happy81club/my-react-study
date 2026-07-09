@@ -96,6 +96,268 @@
   color: #5145cd;
 }
 
+.travel-feature {
+  grid-column: 1 / -1;
+}
+
+.travel-feature .feature-icon,
+.travel-coming-icon {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.travel-shell {
+  width: min(100%, 900px);
+  padding: 34px;
+  box-sizing: border-box;
+  border: 1px solid rgba(18, 31, 43, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 32px 80px rgba(18, 31, 43, 0.12);
+}
+
+.travel-header {
+  margin: 26px 0 20px;
+}
+
+.travel-header .eyebrow {
+  color: #c2410c;
+}
+
+.travel-header h1 {
+  margin: 0;
+  color: #121f2b;
+  font-size: clamp(30px, 6vw, 46px);
+  line-height: 1.1;
+}
+
+.travel-header p {
+  margin: 10px 0 0;
+  color: #64748b;
+}
+
+.korea-map-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.1fr) minmax(260px, 0.9fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.korea-map {
+  position: relative;
+  min-height: 580px;
+  overflow: hidden;
+  border: 1px solid #fed7aa;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255, 237, 213, 0.62), transparent 52%),
+    linear-gradient(145deg, #f0f9ff, #e0f2fe);
+}
+
+.korea-map::before {
+  content: '대한민국';
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  color: rgba(12, 74, 110, 0.35);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.korea-map-art {
+  position: absolute;
+  top: 18px;
+  bottom: 16px;
+  left: 50%;
+  aspect-ratio: 509 / 716.1;
+  max-width: calc(100% - 24px);
+  transform: translateX(-50%);
+}
+
+.korea-map-art > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 16px 18px rgba(15, 118, 110, 0.16));
+}
+
+.city-marker {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7c2d12;
+  transform: translate(-50%, -50%);
+}
+
+.city-marker i {
+  display: block;
+  width: 13px;
+  height: 13px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #ea580c;
+  box-shadow: 0 4px 12px rgba(124, 45, 18, 0.35);
+}
+
+.city-marker span {
+  padding: 3px 6px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #17202a;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
+}
+
+.city-marker:hover {
+  z-index: 3;
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.city-marker:hover i {
+  background: #c2410c;
+}
+
+.city-marker:focus-visible span {
+  outline: 3px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
+.korea-map-credit {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  z-index: 4;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #64748b;
+  font-size: 8px;
+  text-decoration: none;
+}
+
+.city-guide {
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  background: #f8fafc;
+}
+
+.city-guide .eyebrow {
+  color: #c2410c;
+}
+
+.city-guide h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 25px;
+}
+
+.city-guide > p {
+  margin: 9px 0 18px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.city-button-list {
+  display: grid;
+  gap: 8px;
+}
+
+.region-button-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.city-button-list button {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #334155;
+  text-align: left;
+}
+
+.city-button-list button:hover {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.city-button-list small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.city-button-list i {
+  color: #ea580c;
+  font-style: normal;
+}
+
+.district-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.district-grid button {
+  min-height: 86px;
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #334155;
+  text-align: left;
+}
+
+.district-grid button:hover,
+.district-grid button.selected {
+  border-color: #fb923c;
+  background: #fff7ed;
+  color: #9a3412;
+  box-shadow: 0 10px 24px rgba(154, 52, 18, 0.08);
+}
+
+.district-grid button span {
+  font-weight: 850;
+}
+
+.district-grid button small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.district-selection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 15px 18px;
+  border-radius: 15px;
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.district-selection span {
+  color: #c2410c;
+  font-size: 13px;
+}
+
 .feature-copy {
   grid-column: 1 / -1;
   display: grid;
@@ -1402,6 +1664,16 @@ button:hover {
   }
 }
 
+@media (max-width: 800px) {
+  .korea-map-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .district-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 560px) {
   .App {
     padding: 24px 14px;
@@ -1411,7 +1683,8 @@ button:hover {
   .todo-shell,
   .home-shell,
   .feature-shell,
-  .english-shell {
+  .english-shell,
+  .travel-shell {
     padding: 26px 18px;
   }
 
@@ -1421,6 +1694,23 @@ button:hover {
 
   .feature-card {
     min-height: 160px;
+  }
+
+  .korea-map {
+    min-height: 520px;
+  }
+
+  .city-guide {
+    padding: 18px;
+  }
+
+  .district-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .district-selection {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .word-form {

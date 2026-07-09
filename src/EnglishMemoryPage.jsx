@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const getStorageKey = (userId) => `my-react-study-english-words-${userId}`;
 
@@ -9,6 +9,11 @@ const getToday = () => {
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const isMobileBrowser = () => (
+  /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent)
+  || (window.navigator.maxTouchPoints > 1 && /Macintosh/i.test(window.navigator.userAgent))
+);
 
 const readSavedWords = (userId) => {
   if (typeof window === 'undefined') {
@@ -163,6 +168,8 @@ function EnglishMemoryPage({ user, token, onBack, onLogout }) {
   const [studyWords, setStudyWords] = useState([]);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const [voiceRate, setVoiceRate] = useState(0.9);
+  const isMobileSpeech = useRef(isMobileBrowser());
+  const skipNextSpeechEffect = useRef(false);
 
   const selectedWords = words.filter((word) => word.date === selectedDate);
   const currentWord = studyWords[currentIndex];
@@ -178,6 +185,31 @@ function EnglishMemoryPage({ user, token, onBack, onLogout }) {
       `${calendarYear}-${String(calendarMonthIndex + 1).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`
     )),
   ];
+
+  const speakEnglish = useCallback((word, { onEnd, onError } = {}) => {
+    if (!word || !('speechSynthesis' in window)) {
+      onError?.();
+      return null;
+    }
+
+    const speech = new SpeechSynthesisUtterance(word);
+    const englishVoices = window.speechSynthesis
+      .getVoices()
+      .filter((voice) => voice.lang.toLowerCase().startsWith('en'));
+
+    speech.lang = 'en-US';
+    speech.rate = voiceRate;
+    speech.onend = () => onEnd?.();
+    speech.onerror = () => onError?.();
+
+    if (englishVoices.length > 0) {
+      speech.voice = englishVoices.find((voice) => voice.lang === 'en-US') || englishVoices[0];
+    }
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(speech);
+    return speech;
+  }, [voiceRate]);
 
   while (calendarCells.length % 7 !== 0) {
     calendarCells.push(null);
@@ -273,33 +305,34 @@ function EnglishMemoryPage({ user, token, onBack, onLogout }) {
       return undefined;
     }
 
-    let isCancelled = false;
-    const speech = new SpeechSynthesisUtterance(currentWord.english);
-    const englishVoices = window.speechSynthesis
-      .getVoices()
-      .filter((voice) => voice.lang.toLowerCase().startsWith('en'));
-
-    speech.lang = 'en-US';
-    speech.rate = voiceRate;
-
-    if (englishVoices.length > 0) {
-      speech.voice = englishVoices.find((voice) => voice.lang === 'en-US') || englishVoices[0];
+    if (skipNextSpeechEffect.current) {
+      skipNextSpeechEffect.current = false;
+      return undefined;
     }
 
-    speech.onend = () => {
-      if (!isCancelled) {
-        setCurrentIndex((index) => (index + 1) % studyWords.length);
-      }
-    };
-
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(speech);
+    let isCancelled = false;
+    let fallbackTimer;
+    speakEnglish(currentWord.english, {
+      onEnd: () => {
+        if (!isCancelled) {
+          setCurrentIndex((index) => (index + 1) % studyWords.length);
+        }
+      },
+      onError: () => {
+        if (!isCancelled) {
+          fallbackTimer = window.setTimeout(() => {
+            setCurrentIndex((index) => (index + 1) % studyWords.length);
+          }, 1000);
+        }
+      },
+    });
 
     return () => {
       isCancelled = true;
+      window.clearTimeout(fallbackTimer);
       window.speechSynthesis.cancel();
     };
-  }, [currentWord, isPlaying, isStudying, shouldUseVoice, studyWords.length, voiceRate]);
+  }, [currentWord, isPlaying, isStudying, shouldUseVoice, speakEnglish, studyWords.length]);
 
   const saveWords = async (nextWords) => {
     const response = await fetch('/api/words', {
@@ -352,6 +385,26 @@ function EnglishMemoryPage({ user, token, onBack, onLogout }) {
   const beginStudy = (nextStudyWords) => {
     if (nextStudyWords.length === 0) {
       return;
+    }
+
+    const shouldStartMobileVoice = (
+      isMobileSpeech.current
+      && isVoiceEnabled
+      && displayLanguage !== 'korean'
+      && 'speechSynthesis' in window
+    );
+
+    if (shouldStartMobileVoice) {
+      // Mobile browsers only allow the first speech request inside a direct tap event.
+      skipNextSpeechEffect.current = true;
+      speakEnglish(nextStudyWords[0].english, {
+        onEnd: () => setCurrentIndex((index) => (index + 1) % nextStudyWords.length),
+        onError: () => {
+          window.setTimeout(() => {
+            setCurrentIndex((index) => (index + 1) % nextStudyWords.length);
+          }, 1000);
+        },
+      });
     }
 
     setStudyWords(nextStudyWords);

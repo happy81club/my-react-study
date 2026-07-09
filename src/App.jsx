@@ -2,6 +2,7 @@
 import './App.css';
 import EnglishMemoryPage from './EnglishMemoryPage.jsx';
 import LoginPage, { AUTH_SESSION_KEY } from './LoginPage.jsx';
+import TravelCoursePage from './TravelCoursePage.jsx';
 
 // 개발 서버 프록시를 통해 JSON 파일 저장 API에 연결
 const API_URL = '/api/todos';
@@ -569,6 +570,15 @@ function App() {
               </span>
               <span className="feature-arrow" aria-hidden="true">→</span>
             </button>
+
+            <button type="button" className="feature-card travel-feature" onClick={() => setActivePage('travel')}>
+              <span className="feature-icon" aria-hidden="true">⌖</span>
+              <span className="feature-copy">
+                <strong>지역별 여행·맛집 코스</strong>
+                <small>지역을 골라 여행지와 맛집 코스를 살펴봐요.</small>
+              </span>
+              <span className="feature-arrow" aria-hidden="true">→</span>
+            </button>
           </div>
         </section>
       </main>
@@ -580,6 +590,15 @@ function App() {
       <EnglishMemoryPage
         user={currentUser}
         token={authSession.token}
+        onBack={() => setActivePage('home')}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  if (activePage === 'travel') {
+    return (
+      <TravelCoursePage
         onBack={() => setActivePage('home')}
         onLogout={onLogout}
       />
