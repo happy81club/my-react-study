@@ -61,7 +61,7 @@ function TravelCoursePage({ onBack, onLogout }) {
     const query = `${selectedRegion.name} ${selectedDistrict} ${keyword}`;
     setSearchQuery(keyword);
     window.open(
-      `https://map.naver.com/p/search/${encodeURIComponent(query)}`,
+      `https://search.naver.com/search.naver?query=${encodeURIComponent(query)}`,
       '_blank',
       'noopener,noreferrer',
     );
@@ -115,7 +115,7 @@ function TravelCoursePage({ onBack, onLogout }) {
                 autoFocus
                 required
               />
-              <button type="submit">네이버 지도 검색</button>
+              <button type="submit">포털 통합검색</button>
             </div>
             <div className="travel-quick-keywords" aria-label="추천 검색어">
               {quickKeywords.map((keyword) => (
@@ -140,7 +140,7 @@ function TravelCoursePage({ onBack, onLogout }) {
                   <span className="eyebrow">Search results</span>
                   <h2>‘{fullQuery}’ 검색하기</h2>
                 </div>
-                <small>네이버 지도 검색을 열었습니다. 다른 지도에서도 비교할 수 있어요.</small>
+                <small>블로그·카페·플레이스 통합검색을 열었습니다. 아래에서 지도 검색도 할 수 있어요.</small>
               </div>
               <div className="travel-search-service-grid">
                 {searchServices.map((service) => (
