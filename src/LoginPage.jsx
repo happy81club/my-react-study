@@ -16,7 +16,7 @@ async function readJsonResponse(response) {
   }
 }
 
-function LoginPage({ onLogin }) {
+function LoginPage({ onBack, onLogin, prompt }) {
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -77,10 +77,15 @@ function LoginPage({ onLogin }) {
   return (
     <main className="App">
       <section className="auth-shell" aria-labelledby="auth-title">
+        {onBack && (
+          <div className="page-navigation auth-navigation">
+            <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
+          </div>
+        )}
         <div className="auth-header">
           <span className="eyebrow">계정 시작</span>
           <h1 id="auth-title">{isSignup ? '회원가입' : '로그인'}</h1>
-          <p>{isSignup ? '내 할 일을 따로 저장할 계정을 만들어 주세요.' : '가입한 계정으로 다시 들어오세요.'}</p>
+          <p>{prompt || (isSignup ? '내 할 일을 따로 저장할 계정을 만들어 주세요.' : '가입한 계정으로 다시 들어오세요.')}</p>
         </div>
 
         <div className="auth-tabs" role="tablist" aria-label="인증 방식">

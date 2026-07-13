@@ -43,7 +43,7 @@ const getResultTitle = (item) => stripNaverText(item.title || item.name);
 const getResultDescription = (item) => stripNaverText(item.description || item.address || item.roadAddress);
 const getResultLink = (item) => item.link || item.originallink;
 
-function TravelCoursePage({ onBack, onLogout }) {
+function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [searchText, setSearchText] = useState('');
@@ -176,7 +176,7 @@ function TravelCoursePage({ onBack, onLogout }) {
         <section className="travel-shell district-detail-shell" aria-labelledby="district-title">
           <div className="page-navigation">
             <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>← {selectedRegion.name} 지역 선택</button>
-            <button type="button" className="text-logout-button" onClick={onLogout}>로그아웃</button>
+            <button type="button" className="text-logout-button" onClick={user ? onLogout : onLogin}>{user ? '로그아웃' : '로그인'}</button>
           </div>
 
           <div className="travel-header district-detail-header">
@@ -315,7 +315,7 @@ function TravelCoursePage({ onBack, onLogout }) {
         <section className="travel-shell" aria-labelledby="region-title">
           <div className="page-navigation">
             <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>← 전국 지도</button>
-            <button type="button" className="text-logout-button" onClick={onLogout}>로그아웃</button>
+            <button type="button" className="text-logout-button" onClick={user ? onLogout : onLogin}>{user ? '로그아웃' : '로그인'}</button>
           </div>
           <div className="travel-header">
             <span className="eyebrow">{selectedRegion.type} · Choose an area</span>
@@ -339,7 +339,7 @@ function TravelCoursePage({ onBack, onLogout }) {
       <section className="travel-shell" aria-labelledby="travel-title">
         <div className="page-navigation">
           <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
-          <button type="button" className="text-logout-button" onClick={onLogout}>로그아웃</button>
+          <button type="button" className="text-logout-button" onClick={user ? onLogout : onLogin}>{user ? '로그아웃' : '로그인'}</button>
         </div>
         <div className="travel-header">
           <span className="eyebrow">Travel course</span>

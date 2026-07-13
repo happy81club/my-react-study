@@ -102,6 +102,7 @@ function App() {
   const [authSession, setAuthSession] = useState(readSavedSession);
   const [isCheckingSession, setIsCheckingSession] = useState(() => Boolean(readSavedSession()));
   const [activePage, setActivePage] = useState('home');
+  const [pendingProtectedPage, setPendingProtectedPage] = useState('home');
   const [selectedDate, setSelectedDate] = useState(getToday());
   const [todos, setTodos] = useState([]);
   const [isLoadingTodos, setIsLoadingTodos] = useState(true);
@@ -127,6 +128,16 @@ function App() {
   const addedCount = selectedDateTodos.length;
   const todosByDate = new Set(todos.map((todo) => todo.date));
   const currentUser = authSession?.user;
+
+  const openProtectedPage = (page) => {
+    if (currentUser) {
+      setActivePage(page);
+      return;
+    }
+
+    setPendingProtectedPage(page);
+    setActivePage('login');
+  };
 
   // 현재 달력 페이지의 년/월 정보 계산
   const calendarYear = calendarMonth.getFullYear();
@@ -514,6 +525,7 @@ function App() {
     window.sessionStorage.removeItem(AUTH_SESSION_KEY);
     setAuthSession(null);
     setActivePage('home');
+    setPendingProtectedPage('home');
     setTodos([]);
     setIsLoadingTodos(false);
   };
@@ -528,12 +540,19 @@ function App() {
     );
   }
 
-  if (!currentUser) {
+  if (activePage === 'login') {
+    const loginPrompt = pendingProtectedPage === 'travel'
+      ? '로그인하면 다른 기능도 함께 사용할 수 있습니다.'
+      : '이 기능은 로그인 후 사용할 수 있습니다.';
+
     return (
       <LoginPage
+        onBack={() => setActivePage('home')}
+        prompt={loginPrompt}
         onLogin={(session) => {
-          setActivePage('home');
           setAuthSession(session);
+          setActivePage(pendingProtectedPage === 'home' ? 'home' : pendingProtectedPage);
+          setPendingProtectedPage('home');
         }}
       />
     );
@@ -545,15 +564,19 @@ function App() {
         <section className="home-shell" aria-labelledby="home-title">
           <div className="home-header">
             <div className="user-bar">
-              <span className="eyebrow">{currentUser.name}님, 반가워요</span>
-              <button type="button" onClick={onLogout}>로그아웃</button>
+              <span className="eyebrow">{currentUser ? `${currentUser.name}님, 반가워요` : '둘러보기 모드'}</span>
+              {currentUser ? (
+                <button type="button" onClick={onLogout}>로그아웃</button>
+              ) : (
+                <button type="button" onClick={() => setActivePage('login')}>로그인</button>
+              )}
             </div>
             <h1 id="home-title">오늘은 무엇을 해볼까요?</h1>
             <p>원하는 기능을 선택해 바로 시작해 보세요.</p>
           </div>
 
           <div className="feature-grid" aria-label="기능 목록">
-            <button type="button" className="feature-card todo-feature" onClick={() => setActivePage('todos')}>
+            <button type="button" className="feature-card todo-feature" onClick={() => openProtectedPage('todos')}>
               <span className="feature-icon" aria-hidden="true">✓</span>
               <span className="feature-copy">
                 <strong>나의 할 일 목록</strong>
@@ -562,7 +585,7 @@ function App() {
               <span className="feature-arrow" aria-hidden="true">→</span>
             </button>
 
-            <button type="button" className="feature-card english-feature" onClick={() => setActivePage('english')}>
+            <button type="button" className="feature-card english-feature" onClick={() => openProtectedPage('english')}>
               <span className="feature-icon" aria-hidden="true">A</span>
               <span className="feature-copy">
                 <strong>영어 암기</strong>
@@ -586,6 +609,19 @@ function App() {
   }
 
   if (activePage === 'english') {
+    if (!currentUser) {
+      return (
+        <LoginPage
+          onBack={() => setActivePage('home')}
+          prompt="영어 암기는 로그인 후 사용할 수 있습니다."
+          onLogin={(session) => {
+            setAuthSession(session);
+            setActivePage('english');
+          }}
+        />
+      );
+    }
+
     return (
       <EnglishMemoryPage
         user={currentUser}
@@ -599,8 +635,26 @@ function App() {
   if (activePage === 'travel') {
     return (
       <TravelCoursePage
+        user={currentUser}
         onBack={() => setActivePage('home')}
         onLogout={onLogout}
+        onLogin={() => {
+          setPendingProtectedPage('travel');
+          setActivePage('login');
+        }}
+      />
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <LoginPage
+        onBack={() => setActivePage('home')}
+        prompt="나의 할 일 목록은 로그인 후 사용할 수 있습니다."
+        onLogin={(session) => {
+          setAuthSession(session);
+          setActivePage('todos');
+        }}
       />
     );
   }
