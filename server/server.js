@@ -15,8 +15,10 @@ const todosFile = path.join(dataDir, 'todos.json');
 const usersFile = path.join(dataDir, 'users.json');
 const sessionsFile = path.join(dataDir, 'sessions.json');
 const wordsFile = path.join(dataDir, 'words.json');
+const travelPlacesFile = path.join(dataDir, 'travel-places.json');
 const port = process.env.PORT || 3002;
 const SESSION_DURATION_MS = 30 * 60 * 1000;
+const TEMPORARY_PASSWORD = '1234';
 
 async function loadLocalEnv() {
   try {
@@ -114,6 +116,8 @@ const readSessions = () => readJsonFile(sessionsFile, []);
 const writeSessions = (sessions) => writeJsonFile(sessionsFile, sessions);
 const readWords = () => readJsonFile(wordsFile, []);
 const writeWords = (words) => writeJsonFile(wordsFile, words);
+const readTravelPlaces = () => readJsonFile(travelPlacesFile, []);
+const writeTravelPlaces = (places) => writeJsonFile(travelPlacesFile, places);
 
 // Node 기본 http 서버는 Express처럼 body 파싱을 자동으로 해주지 않는다.
 // 요청 스트림을 끝까지 모은 뒤 JSON으로 파싱해서 핸들러가 사용할 객체로 돌려준다.
@@ -187,6 +191,46 @@ function isWordList(value) {
   ));
 }
 
+function normalizePlaceInput(value) {
+  const tags = Array.isArray(value?.tags)
+    ? value.tags
+    : String(value?.tags || '')
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+  return {
+    title: String(value?.title || '').trim(),
+    category: ['restaurant', 'travel'].includes(value?.category) ? value.category : 'restaurant',
+    region: String(value?.region || '').trim(),
+    district: String(value?.district || '').trim(),
+    address: String(value?.address || '').trim(),
+    memo: String(value?.memo || '').trim(),
+    tags: tags.slice(0, 6),
+    isPublic: Boolean(value?.isPublic),
+    isAuthorPublic: Boolean(value?.isPublic && value?.isAuthorPublic),
+  };
+}
+
+function publicTravelPlace(place) {
+  return {
+    id: place.id,
+    userId: place.userId,
+    authorName: place.isAuthorPublic ? place.authorName : '',
+    title: place.title,
+    category: place.category,
+    region: place.region,
+    district: place.district,
+    address: place.address,
+    memo: place.memo,
+    tags: place.tags,
+    isPublic: place.isPublic,
+    isAuthorPublic: Boolean(place.isAuthorPublic),
+    createdAt: place.createdAt,
+    updatedAt: place.updatedAt,
+  };
+}
+
 // 로그인 성공 시 sessions.json에 저장할 세션 객체를 만든다.
 // token은 이후 Authorization: Bearer <token> 헤더로 들어오며, userId로 실제 사용자를 찾는다.
 function createSession(userId) {
@@ -198,6 +242,39 @@ function createSession(userId) {
     createdAt: createdAt.toISOString(),
     expiresAt: new Date(createdAt.getTime() + SESSION_DURATION_MS).toISOString(),
   };
+}
+
+function createTemporaryPassword() {
+  return TEMPORARY_PASSWORD;
+}
+
+async function sendTemporaryPasswordEmail(email, temporaryPassword) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.PASSWORD_RESET_FROM;
+
+  if (!apiKey || !from || apiKey.startsWith('your_') || from.includes('example.com')) {
+    return false;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+
+  const mailResponse = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    signal: controller.signal,
+    body: JSON.stringify({
+      from,
+      to: email,
+      subject: '새 임시 비밀번호 안내',
+      text: `요청하신 임시 비밀번호입니다.\n\n${temporaryPassword}\n\n로그인 후 설정에서 새 비밀번호로 변경해 주세요.`,
+    }),
+  }).finally(() => clearTimeout(timeout));
+
+  return mailResponse.ok;
 }
 
 function getSessionExpiration(session) {
@@ -324,6 +401,95 @@ async function handleLogin(request, response) {
   });
 }
 
+async function handlePasswordReset(request, response) {
+  const body = await readJsonBody(request);
+  const email = normalizeEmail(body?.email);
+
+  if (!email.includes('@')) {
+    sendJson(response, 400, { message: '이메일을 확인해 주세요.' });
+    return;
+  }
+
+  const [users, sessions] = await Promise.all([readUsers(), readSessions()]);
+  const user = users.find((item) => item.email === email);
+
+  if (!user) {
+    sendJson(response, 200, {
+      ok: true,
+      message: '가입된 이메일이면 새 임시 비밀번호를 보내드립니다.',
+    });
+    return;
+  }
+
+  const temporaryPassword = createTemporaryPassword();
+  const nextUsers = users.map((item) => (
+    item.id === user.id
+      ? { ...item, passwordHash: hashPassword(temporaryPassword), passwordUpdatedAt: new Date().toISOString() }
+      : item
+  ));
+  const nextSessions = sessions.filter((session) => session.userId !== user.id);
+
+  await Promise.all([
+    writeUsers(nextUsers),
+    writeSessions(nextSessions),
+  ]);
+
+  const mailed = await sendTemporaryPasswordEmail(email, temporaryPassword);
+
+  if (!mailed) {
+    console.info(`[password-reset] ${email} temporary password: ${temporaryPassword}`);
+  }
+
+  sendJson(response, 200, {
+    ok: true,
+    mailed,
+    temporaryPassword,
+    message: mailed
+      ? '새 임시 비밀번호를 이메일로 보냈습니다.'
+      : '비밀번호가 1234로 초기화되었습니다. 로그인 후 설정에서 변경해 주세요.',
+  });
+}
+
+async function handlePasswordChange(request, response) {
+  const sessionUser = await findSessionUser(request);
+
+  if (!sessionUser) {
+    sendJson(response, 401, { message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  const body = await readJsonBody(request);
+  const currentPassword = String(body?.currentPassword || '');
+  const nextPassword = String(body?.nextPassword || '');
+
+  if (nextPassword.length < 4) {
+    sendJson(response, 400, { message: '새 비밀번호는 4자 이상으로 입력해 주세요.' });
+    return;
+  }
+
+  if (hashPassword(currentPassword) !== sessionUser.user.passwordHash) {
+    sendJson(response, 400, { message: '현재 비밀번호가 맞지 않습니다.' });
+    return;
+  }
+
+  const [users, sessions] = await Promise.all([readUsers(), readSessions()]);
+  const nextUsers = users.map((user) => (
+    user.id === sessionUser.user.id
+      ? { ...user, passwordHash: hashPassword(nextPassword), passwordUpdatedAt: new Date().toISOString() }
+      : user
+  ));
+  const nextSessions = sessions.filter((session) => (
+    session.userId !== sessionUser.user.id || session.token === sessionUser.token
+  ));
+
+  await Promise.all([
+    writeUsers(nextUsers),
+    writeSessions(nextSessions),
+  ]);
+
+  sendJson(response, 200, { ok: true, message: '비밀번호가 변경되었습니다.' });
+}
+
 // GET /api/session
 // 새로고침 후에도 localStorage에 저장된 토큰이 아직 유효한지 확인하는 엔드포인트.
 async function handleSession(request, response) {
@@ -430,6 +596,103 @@ async function handleWords(request, response) {
 
 // Node 기본 http 서버의 단일 진입점.
 // URL과 method를 직접 확인해서 각 API 핸들러로 분기한다.
+async function handleTravelPlaces(request, response, url) {
+  const sessionUser = await findSessionUser(request);
+
+  if (request.method === 'GET') {
+    const scope = String(url.searchParams.get('scope') || 'public');
+    const region = String(url.searchParams.get('region') || '').trim();
+    const district = String(url.searchParams.get('district') || '').trim();
+    const places = await readTravelPlaces();
+
+    if (scope === 'mine' && !sessionUser) {
+      sendJson(response, 401, { message: '로그인이 필요합니다.' });
+      return;
+    }
+
+    const filteredPlaces = places
+      .filter((place) => {
+        const ownerMatch = scope === 'mine' ? place.userId === sessionUser.user.id : place.isPublic;
+        const regionMatch = region ? place.region === region : true;
+        const districtMatch = district ? place.district === district : true;
+        return ownerMatch && regionMatch && districtMatch;
+      })
+      .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))
+      .map(publicTravelPlace);
+
+    sendJson(response, 200, filteredPlaces);
+    return;
+  }
+
+  if (!sessionUser) {
+    sendJson(response, 401, { message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  if (request.method !== 'POST') {
+    sendJson(response, 405, { message: 'Method not allowed' });
+    return;
+  }
+
+  const body = await readJsonBody(request);
+  const action = String(body?.action || 'create');
+  const places = await readTravelPlaces();
+
+  if (action === 'delete') {
+    const id = String(body?.id || '');
+    const target = places.find((place) => place.id === id);
+
+    if (!target || target.userId !== sessionUser.user.id) {
+      sendJson(response, 404, { message: '기록을 찾을 수 없습니다.' });
+      return;
+    }
+
+    await writeTravelPlaces(places.filter((place) => place.id !== id));
+    sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  const input = normalizePlaceInput(body);
+
+  if (input.title.length < 2 || !input.region || !input.district) {
+    sendJson(response, 400, { message: '이름, 지역, 구역을 확인해 주세요.' });
+    return;
+  }
+
+  if (action === 'update') {
+    const id = String(body?.id || '');
+    const target = places.find((place) => place.id === id);
+
+    if (!target || target.userId !== sessionUser.user.id) {
+      sendJson(response, 404, { message: '기록을 찾을 수 없습니다.' });
+      return;
+    }
+
+    const nextPlace = {
+      ...target,
+      ...input,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await writeTravelPlaces(places.map((place) => (place.id === id ? nextPlace : place)));
+    sendJson(response, 200, publicTravelPlace(nextPlace));
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const place = {
+    id: randomUUID(),
+    userId: sessionUser.user.id,
+    authorName: sessionUser.user.name,
+    ...input,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await writeTravelPlaces([place, ...places]);
+  sendJson(response, 201, publicTravelPlace(place));
+}
+
 const naverSearchSections = [
   { id: 'blog', label: '블로그', endpoint: 'blog' },
   { id: 'cafearticle', label: '카페', endpoint: 'cafearticle' },
@@ -525,6 +788,16 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (url.pathname === '/api/password-reset' && request.method === 'POST') {
+      await handlePasswordReset(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/password-change' && request.method === 'POST') {
+      await handlePasswordChange(request, response);
+      return;
+    }
+
     if (url.pathname === '/api/session' && request.method === 'GET') {
       await handleSession(request, response);
       return;
@@ -543,6 +816,11 @@ const server = createServer(async (request, response) => {
 
     if (url.pathname === '/api/words') {
       await handleWords(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/travel-places') {
+      await handleTravelPlaces(request, response, url);
       return;
     }
 

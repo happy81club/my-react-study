@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const REGIONS = [
   { id: 'seoul', name: '서울', type: '특별시', x: 31, y: 20, districts: ['종로구', '중구', '용산구', '성동구', '광진구', '동대문구', '중랑구', '성북구', '강북구', '도봉구', '노원구', '은평구', '서대문구', '마포구', '양천구', '강서구', '구로구', '금천구', '영등포구', '동작구', '관악구', '서초구', '강남구', '송파구', '강동구'] },
@@ -31,6 +31,108 @@ const LABEL_POSITIONS = {
 };
 
 const QUICK_KEYWORDS = ['맛집', '카페', '여행지', '데이트 코스', '아이와 가볼 만한 곳', '현지인 추천'];
+const PLACE_CATEGORY_FILTERS = [
+  { id: 'all', label: '전체보기' },
+  { id: 'restaurant', label: '맛집' },
+  { id: 'travel', label: '여행지' },
+];
+
+const EMPTY_PLACE_FORM = {
+  title: '',
+  category: 'restaurant',
+  address: '',
+  memo: '',
+  tags: '',
+  isPublic: false,
+  isAuthorPublic: false,
+};
+const TRAVEL_RETURN_KEY = 'my-react-study-travel-return';
+
+function formatPlaceRegionName(regionName) {
+  return regionName === '서울' ? '서울시' : regionName;
+}
+
+function getPlaceTitlePrefix(region, district) {
+  return region && district
+    ? `[${formatPlaceRegionName(region.name)} ${district}] `
+    : '';
+}
+
+function stripPlaceTitlePrefix(value, prefix) {
+  const title = String(value || '').trim();
+  return prefix && title.startsWith(prefix.trim())
+    ? title.slice(prefix.trim().length).trimStart()
+    : title;
+}
+
+function createDefaultPlaceForm() {
+  return {
+    ...EMPTY_PLACE_FORM,
+    title: '',
+  };
+}
+
+async function readJsonResponse(response) {
+  const text = await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function formatPlaceDate(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatPlaceTitle(value) {
+  const title = String(value || '').replace(/\s+/g, ' ').trim();
+  const cleanedTitle = title
+    .replace(/\s*\[출처\].*$/u, '')
+    .replace(/\s*\|\s*작성자\s*.*$/u, '')
+    .trim();
+
+  return cleanedTitle || title || '제목 없음';
+}
+
+function readTravelReturn() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const savedReturn = window.sessionStorage.getItem(TRAVEL_RETURN_KEY);
+    return savedReturn ? JSON.parse(savedReturn) : null;
+  } catch {
+    window.sessionStorage.removeItem(TRAVEL_RETURN_KEY);
+    return null;
+  }
+}
+
+function saveTravelReturn(value) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.sessionStorage.setItem(TRAVEL_RETURN_KEY, JSON.stringify(value));
+}
+
+function clearTravelReturn() {
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.removeItem(TRAVEL_RETURN_KEY);
+  }
+}
 
 const stripNaverText = (value) => String(value || '')
   .replace(/<[^>]*>/g, '')
@@ -43,7 +145,7 @@ const getResultTitle = (item) => stripNaverText(item.title || item.name);
 const getResultDescription = (item) => stripNaverText(item.description || item.address || item.roadAddress);
 const getResultLink = (item) => item.link || item.originallink;
 
-function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
+function TravelCoursePage({ initialView = 'map', onBack, onLogin, onLogout, token, user }) {
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [searchText, setSearchText] = useState('');
@@ -52,6 +154,52 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
   const [isSearching, setIsSearching] = useState(false);
   const [loadingSectionId, setLoadingSectionId] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [isLocalExpanded, setIsLocalExpanded] = useState(false);
+  const [myPlaces, setMyPlaces] = useState([]);
+  const [publicPlaces, setPublicPlaces] = useState([]);
+  const [districtPublicCounts, setDistrictPublicCounts] = useState({});
+  const [placeForm, setPlaceForm] = useState(EMPTY_PLACE_FORM);
+  const [editingPlaceId, setEditingPlaceId] = useState('');
+  const [placeMessage, setPlaceMessage] = useState('');
+  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
+  const [isSavingPlace, setIsSavingPlace] = useState(false);
+  const [isPlaceManagerOpen, setIsPlaceManagerOpen] = useState(false);
+  const [isPublicPlaceListOpen, setIsPublicPlaceListOpen] = useState(false);
+  const [isAllMyPlacesOpen, setIsAllMyPlacesOpen] = useState(initialView === 'myPlaces');
+  const [placeDetail, setPlaceDetail] = useState(null);
+  const [placeCategoryFilter, setPlaceCategoryFilter] = useState('all');
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const travelReturn = readTravelReturn();
+
+    if (!travelReturn?.regionId || !travelReturn?.district) {
+      return;
+    }
+
+    const region = REGIONS.find((item) => item.id === travelReturn.regionId);
+
+    if (!region || !region.districts.includes(travelReturn.district)) {
+      clearTravelReturn();
+      return;
+    }
+
+    setSelectedRegion(region);
+    setSelectedDistrict(travelReturn.district);
+    setSearchText('');
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchError('');
+    setIsLocalExpanded(false);
+    setPlaceForm(travelReturn.openPlaceManager ? createDefaultPlaceForm(region, travelReturn.district) : EMPTY_PLACE_FORM);
+    setEditingPlaceId('');
+    setPlaceMessage('');
+    setIsPlaceManagerOpen(Boolean(travelReturn.openPlaceManager));
+    clearTravelReturn();
+  }, [user?.id]);
 
   const openRegion = (region) => {
     setSelectedRegion(region);
@@ -60,6 +208,15 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
     setSearchQuery('');
     setSearchResults([]);
     setSearchError('');
+    setIsLocalExpanded(false);
+    setPlaceForm(EMPTY_PLACE_FORM);
+    setEditingPlaceId('');
+    setPlaceMessage('');
+    setIsPlaceManagerOpen(false);
+    setIsPublicPlaceListOpen(false);
+    setIsAllMyPlacesOpen(false);
+    setPlaceDetail(null);
+    setPlaceCategoryFilter('all');
   };
 
   const openDistrict = (district) => {
@@ -68,7 +225,632 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
     setSearchQuery('');
     setSearchResults([]);
     setSearchError('');
+    setIsLocalExpanded(false);
+    setPlaceForm(EMPTY_PLACE_FORM);
+    setEditingPlaceId('');
+    setPlaceMessage('');
+    setIsPlaceManagerOpen(false);
+    setIsPublicPlaceListOpen(false);
+    setIsAllMyPlacesOpen(false);
+    setPlaceDetail(null);
+    setPlaceCategoryFilter('all');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const fetchDistrictPublicCounts = async (region = selectedRegion) => {
+    if (!region) {
+      setDistrictPublicCounts({});
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/travel-places?scope=public&region=${encodeURIComponent(region.name)}`);
+      const data = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data?.message || '공개 기록 개수를 불러오지 못했습니다.');
+      }
+
+      const counts = (Array.isArray(data) ? data : []).reduce((result, place) => {
+        if (!place?.district) {
+          return result;
+        }
+
+        return {
+          ...result,
+          [place.district]: (result[place.district] || 0) + 1,
+        };
+      }, {});
+
+      setDistrictPublicCounts(counts);
+    } catch {
+      setDistrictPublicCounts({});
+    }
+  };
+
+  const fetchTravelPlaces = async () => {
+    if (!selectedRegion || !selectedDistrict) {
+      setMyPlaces([]);
+      setPublicPlaces([]);
+      return;
+    }
+
+    setIsLoadingPlaces(true);
+
+    try {
+      const query = `region=${encodeURIComponent(selectedRegion.name)}&district=${encodeURIComponent(selectedDistrict)}`;
+      const publicResponse = await fetch(`/api/travel-places?scope=public&${query}`);
+      const myResponse = user && token
+        ? await fetch(`/api/travel-places?scope=mine&${query}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        : null;
+      const publicData = await readJsonResponse(publicResponse);
+      const myData = myResponse ? await readJsonResponse(myResponse) : [];
+
+      if (!publicResponse.ok) {
+        throw new Error(publicData?.message || '공개 기록을 불러오지 못했습니다.');
+      }
+
+      if (myResponse && !myResponse.ok) {
+        throw new Error(myData?.message || '내 기록을 불러오지 못했습니다.');
+      }
+
+      setPublicPlaces(Array.isArray(publicData) ? publicData : []);
+      setMyPlaces(Array.isArray(myData) ? myData : []);
+    } catch (error) {
+      setPlaceMessage(error.message || '여행 기록을 불러오지 못했습니다.');
+    } finally {
+      setIsLoadingPlaces(false);
+    }
+  };
+
+  const fetchAllMyPlaces = async () => {
+    if (!user || !token || !isAllMyPlacesOpen) {
+      return;
+    }
+
+    setIsLoadingPlaces(true);
+    setPlaceMessage('');
+
+    try {
+      const response = await fetch('/api/travel-places?scope=mine', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data?.message || '내 기록을 불러오지 못했습니다.');
+      }
+
+      setMyPlaces(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setPlaceMessage(error.message || '내 기록을 불러오지 못했습니다.');
+    } finally {
+      setIsLoadingPlaces(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTravelPlaces();
+  }, [selectedRegion?.name, selectedDistrict, token, user?.id]);
+
+  useEffect(() => {
+    fetchAllMyPlaces();
+  }, [isAllMyPlacesOpen, token, user?.id]);
+
+  useEffect(() => {
+    fetchDistrictPublicCounts();
+  }, [selectedRegion?.name]);
+
+  useEffect(() => {
+    if (!user && isPlaceManagerOpen) {
+      setIsPlaceManagerOpen(false);
+    }
+  }, [isPlaceManagerOpen, user]);
+
+  const openPlaceManager = () => {
+    if (!user || !token) {
+      if (selectedRegion && selectedDistrict) {
+        saveTravelReturn({
+          regionId: selectedRegion.id,
+          district: selectedDistrict,
+          openPlaceManager: true,
+        });
+      }
+      onLogin();
+      return;
+    }
+
+    if (!editingPlaceId && !placeForm.title.trim()) {
+      setPlaceForm(createDefaultPlaceForm(selectedRegion, selectedDistrict));
+    }
+    setIsPlaceManagerOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const updatePlaceForm = (field, value) => {
+    setPlaceForm((currentForm) => ({
+      ...currentForm,
+      [field]: value,
+      ...(field === 'isPublic' && !value ? { isAuthorPublic: false } : {}),
+    }));
+  };
+
+  const resetPlaceForm = () => {
+    setPlaceForm(createDefaultPlaceForm(selectedRegion, selectedDistrict));
+    setEditingPlaceId('');
+  };
+
+  const submitTravelPlace = async (event) => {
+    event.preventDefault();
+
+    if (!user || !token) {
+      onLogin();
+      return;
+    }
+
+    if (!selectedRegion || !selectedDistrict) {
+      return;
+    }
+
+    const titlePrefix = getPlaceTitlePrefix(selectedRegion, selectedDistrict);
+    const titleName = stripPlaceTitlePrefix(placeForm.title, titlePrefix);
+    const memo = placeForm.memo.trim();
+
+    if (titleName.length < 2 || !memo) {
+      setPlaceMessage('이름과 메모를 입력해 주세요.');
+      return;
+    }
+
+    setIsSavingPlace(true);
+    setPlaceMessage('');
+
+    try {
+      const response = await fetch('/api/travel-places', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: editingPlaceId ? 'update' : 'create',
+          id: editingPlaceId,
+          ...placeForm,
+          title: `${titlePrefix}${titleName}`,
+          memo,
+          region: selectedRegion.name,
+          district: selectedDistrict,
+        }),
+      });
+      const data = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data?.message || '기록을 저장하지 못했습니다.');
+      }
+
+      setPlaceMessage(editingPlaceId ? '기록을 수정했습니다.' : '내 기록에 추가했습니다.');
+      resetPlaceForm();
+      await fetchTravelPlaces();
+      await fetchDistrictPublicCounts();
+    } catch (error) {
+      setPlaceMessage(error.message || '기록을 저장하지 못했습니다.');
+    } finally {
+      setIsSavingPlace(false);
+    }
+  };
+
+  const editTravelPlace = (place) => {
+    const placeRegion = REGIONS.find((region) => region.name === place.region);
+    const titlePrefix = getPlaceTitlePrefix(placeRegion, place.district);
+
+    setPlaceDetail(null);
+    setIsPublicPlaceListOpen(false);
+
+    if (placeRegion && place.district) {
+      setSelectedRegion(placeRegion);
+      setSelectedDistrict(place.district);
+    }
+
+    setIsAllMyPlacesOpen(false);
+    setIsPlaceManagerOpen(true);
+    setEditingPlaceId(place.id);
+    setPlaceForm({
+      title: stripPlaceTitlePrefix(place.title, titlePrefix),
+      category: place.category || 'restaurant',
+      address: place.address || '',
+      memo: place.memo || '',
+      tags: Array.isArray(place.tags) ? place.tags.join(', ') : '',
+      isPublic: Boolean(place.isPublic),
+      isAuthorPublic: Boolean(place.isAuthorPublic),
+    });
+  };
+
+  const deleteTravelPlace = async (placeId) => {
+    if (!token) {
+      onLogin();
+      return;
+    }
+
+    if (typeof window !== 'undefined' && !window.confirm('정말 이 기록을 삭제할까요? 삭제 후에는 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    setIsSavingPlace(true);
+    setPlaceMessage('');
+
+    try {
+      const response = await fetch('/api/travel-places', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'delete', id: placeId }),
+      });
+      const data = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data?.message || '기록을 삭제하지 못했습니다.');
+      }
+
+      setPlaceMessage('기록을 삭제했습니다.');
+      setPlaceDetail(null);
+      resetPlaceForm();
+      if (isAllMyPlacesOpen) {
+        await fetchAllMyPlaces();
+      } else {
+        await fetchTravelPlaces();
+      }
+      await fetchDistrictPublicCounts();
+    } catch (error) {
+      setPlaceMessage(error.message || '기록을 삭제하지 못했습니다.');
+    } finally {
+      setIsSavingPlace(false);
+    }
+  };
+
+  const openPlaceDetail = (place, { editable = false, showLocation = false } = {}) => {
+    setPlaceDetail({ place, editable, showLocation });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePlaceCardKeyDown = (event, place, options) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    openPlaceDetail(place, options);
+  };
+
+  const renderPlaceList = (places, {
+    editable = true,
+    detailEditable = editable,
+    emptyText = '아직 작성한 기록이 없습니다.',
+    showLocation = false,
+  } = {}) => {
+    if (isLoadingPlaces) {
+      return <p className="travel-place-empty">기록을 불러오는 중입니다.</p>;
+    }
+
+    if (places.length === 0) {
+      return <p className="travel-place-empty">{emptyText}</p>;
+    }
+
+    return (
+      <div className="travel-place-list">
+        {places.map((place) => {
+          const detailOptions = { editable: detailEditable, showLocation };
+
+          return (
+            <article
+              className="travel-place-card"
+              key={place.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => openPlaceDetail(place, detailOptions)}
+              onKeyDown={(event) => handlePlaceCardKeyDown(event, place, detailOptions)}
+            >
+              <div className="travel-place-card-header">
+                <span className={`travel-place-type type-${place.category}`}>
+                  {place.category === 'travel' ? '여행지' : '맛집'}
+                </span>
+                <small>{formatPlaceDate(place.updatedAt || place.createdAt)}</small>
+              </div>
+              <h3>{formatPlaceTitle(place.title)}</h3>
+              {showLocation && (place.region || place.district) && (
+                <p className="travel-place-location">{[place.region, place.district].filter(Boolean).join(' ')}</p>
+              )}
+              {place.address && <p className="travel-place-address">{place.address}</p>}
+              {place.memo && <p>{place.memo}</p>}
+              {Array.isArray(place.tags) && place.tags.length > 0 && (
+                <div className="travel-place-tags">
+                  {place.tags.map((tag) => <span key={tag}>#{tag}</span>)}
+                </div>
+              )}
+              <div className="travel-place-footer">
+                <span>{place.isPublic ? '공개' : '나만 보기'}</span>
+                {!editable && place.authorName && <span>{place.authorName}</span>}
+              </div>
+              {editable && (
+                <div
+                  className="travel-place-actions"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      editTravelPlace(place);
+                    }}
+                  >
+                    수정
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deleteTravelPlace(place.id);
+                    }}
+                    disabled={isSavingPlace}
+                  >
+                    삭제
+                  </button>
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderPlaceDetail = () => {
+    if (!placeDetail?.place) {
+      return null;
+    }
+
+    const { place, editable, showLocation } = placeDetail;
+    const location = [place.region, place.district].filter(Boolean).join(' ');
+    const title = formatPlaceTitle(place.title);
+    const hasMapLocation = Boolean(place.address || location);
+    const mapQuery = place.address
+      ? [location, place.address].filter(Boolean).join(' ')
+      : location;
+    const naverMapUrl = `https://map.naver.com/p/search/${encodeURIComponent(mapQuery)}`;
+    const googleMapEmbedUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`;
+
+    return (
+      <main className="App">
+        <section className="travel-shell district-detail-shell" aria-labelledby="travel-place-detail-title">
+          <div className="page-navigation">
+            <div className="travel-navigation-actions">
+              <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
+              <button type="button" className="home-button" onClick={() => setPlaceDetail(null)}>목록으로</button>
+              {!isAllMyPlacesOpen && selectedRegion && (
+                <button
+                  type="button"
+                  className="home-button"
+                  onClick={() => {
+                    setPlaceDetail(null);
+                    setSelectedDistrict('');
+                  }}
+                >
+                  {selectedRegion.name} 지역
+                </button>
+              )}
+            </div>
+            {renderSessionAction()}
+          </div>
+
+          <article className="travel-place-detail">
+            <div className="travel-place-detail-header">
+              <div className="travel-place-detail-title-row">
+                <span className={`travel-place-type type-${place.category}`}>
+                  {place.category === 'travel' ? '여행지' : '맛집'}
+                </span>
+                <h1 id="travel-place-detail-title">{title}</h1>
+              </div>
+              <time dateTime={place.updatedAt || place.createdAt}>{formatPlaceDate(place.updatedAt || place.createdAt)}</time>
+            </div>
+
+            {(showLocation || location) && location && (
+              <p className="travel-place-detail-location">{location}</p>
+            )}
+            {hasMapLocation && (
+              <section className="travel-place-detail-section">
+                <div className="travel-place-detail-section-header">
+                  <span>주소 또는 위치</span>
+                  <div className="travel-place-map-links">
+                    <a href={naverMapUrl} target="_blank" rel="noreferrer">네이버지도</a>
+                  </div>
+                </div>
+                {place.address ? (
+                  <p>{place.address}</p>
+                ) : (
+                  <p className="travel-place-map-note">상세주소가 없어 {location} 기준으로 표시됩니다.</p>
+                )}
+                <div className="travel-place-map">
+                  <iframe
+                    title={`${title} 지도`}
+                    src={googleMapEmbedUrl}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
+              </section>
+            )}
+            {place.memo && (
+              <section className="travel-place-detail-section">
+                <span>메모</span>
+                <p>{place.memo}</p>
+              </section>
+            )}
+            {Array.isArray(place.tags) && place.tags.length > 0 && (
+              <section className="travel-place-detail-section">
+                <span>태그</span>
+                <div className="travel-place-tags">
+                  {place.tags.map((tag) => <span key={tag}>#{tag}</span>)}
+                </div>
+              </section>
+            )}
+
+            <div className="travel-place-detail-footer">
+              <span>{place.isPublic ? '공개' : '나만 보기'}</span>
+              {place.authorName && <span>{place.authorName}</span>}
+            </div>
+
+            {editable && (
+              <div className="travel-place-actions">
+                <button type="button" onClick={() => editTravelPlace(place)}>수정</button>
+                <button type="button" onClick={() => deleteTravelPlace(place.id)} disabled={isSavingPlace}>삭제</button>
+              </div>
+            )}
+          </article>
+        </section>
+      </main>
+    );
+  };
+
+  const renderSessionAction = () => (
+    <div className="session-action">
+      {user && <span>{user.name}님</span>}
+      <button type="button" className="text-logout-button" onClick={user ? onLogout : onLogin}>
+        {user ? '로그아웃' : '로그인'}
+      </button>
+    </div>
+  );
+
+  const filterPlacesByCategory = (places) => (
+    placeCategoryFilter === 'all'
+      ? places
+      : places.filter((place) => place.category === placeCategoryFilter)
+  );
+
+  const renderPlaceCategoryFilter = (places) => {
+    const counts = places.reduce((result, place) => ({
+      ...result,
+      [place.category]: (result[place.category] || 0) + 1,
+    }), { all: places.length });
+
+    return (
+      <div className="travel-place-filter" aria-label="맛집 여행지 필터">
+        {PLACE_CATEGORY_FILTERS.map((filter) => (
+          <button
+            type="button"
+            className={placeCategoryFilter === filter.id ? 'active' : ''}
+            key={filter.id}
+            onClick={() => setPlaceCategoryFilter(filter.id)}
+          >
+            <span>{filter.label}</span>
+            <em>{(counts[filter.id] || 0).toLocaleString()}</em>
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderPlaceBoard = (locationName) => {
+    const titlePrefix = getPlaceTitlePrefix(selectedRegion, selectedDistrict);
+
+    return (
+    <section className="travel-place-board" aria-labelledby="travel-place-board-title">
+      <div className="travel-place-board-header">
+        <div>
+          <span className="eyebrow">My places</span>
+          <h2 id="travel-place-board-title">나만의 맛집·여행지</h2>
+        </div>
+      </div>
+
+      <form className="travel-place-form" onSubmit={submitTravelPlace}>
+        <div className="travel-place-form-grid">
+          <label>
+            <span>분류</span>
+            <select
+              value={placeForm.category}
+              onChange={(event) => updatePlaceForm('category', event.target.value)}
+            >
+              <option value="restaurant">맛집</option>
+              <option value="travel">여행지</option>
+            </select>
+          </label>
+          <label className="travel-place-title-label">
+            <span><em>*</em> 이름</span>
+            <div className="travel-place-title-input">
+              {titlePrefix && <strong>{titlePrefix.trim()}</strong>}
+              <input
+                value={stripPlaceTitlePrefix(placeForm.title, titlePrefix)}
+                onChange={(event) => updatePlaceForm('title', event.target.value)}
+                placeholder="장소 이름"
+                minLength={2}
+                required
+              />
+            </div>
+          </label>
+          <label className="wide">
+            <span>주소 또는 위치</span>
+            <input
+              value={placeForm.address}
+              onChange={(event) => updatePlaceForm('address', event.target.value)}
+              placeholder={`${locationName} 근처`}
+            />
+          </label>
+          <label className="wide">
+            <span><em>*</em> 메모</span>
+            <textarea
+              value={placeForm.memo}
+              onChange={(event) => updatePlaceForm('memo', event.target.value)}
+              placeholder="추천 메뉴, 분위기, 주차, 다시 가고 싶은 이유"
+              rows={9}
+              required
+            />
+          </label>
+          <div className="travel-photo-placeholder wide" aria-label="사진 등록 준비 영역">
+            <div>
+              <strong>사진 등록</strong>
+              <span>나중에 장소 사진을 추가할 수 있도록 준비 중입니다.</span>
+            </div>
+            <button type="button" disabled>사진 추가 준비중</button>
+          </div>
+        </div>
+        <div className="travel-place-form-actions">
+          <label className="travel-place-public-toggle">
+            <input
+              type="checkbox"
+              checked={placeForm.isPublic}
+              onChange={(event) => updatePlaceForm('isPublic', event.target.checked)}
+            />
+            <span>모두에게 공개</span>
+          </label>
+          <label className="travel-place-public-toggle">
+            <input
+              type="checkbox"
+              checked={placeForm.isAuthorPublic}
+              onChange={(event) => updatePlaceForm('isAuthorPublic', event.target.checked)}
+              disabled={!placeForm.isPublic}
+            />
+            <span>작성자 공개</span>
+          </label>
+          <div>
+            {editingPlaceId && (
+              <button type="button" className="travel-place-cancel" onClick={resetPlaceForm}>취소</button>
+            )}
+            <button type="submit" disabled={isSavingPlace}>
+              {isSavingPlace ? '저장 중' : editingPlaceId ? '수정 저장' : '기록 추가'}
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {placeMessage && <p className="travel-place-message">{placeMessage}</p>}
+
+      <div className="travel-place-tab-panel">
+        {renderPlaceList(myPlaces)}
+      </div>
+    </section>
+    );
   };
 
   const searchPortal = async (keyword) => {
@@ -84,6 +866,7 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
     setIsSearching(true);
     setLoadingSectionId('');
     setSearchError('');
+    setIsLocalExpanded(false);
 
     try {
       const response = await fetch(`/api/naver/search?query=${encodeURIComponent(query)}&display=6`);
@@ -149,6 +932,45 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
     searchPortal(searchText);
   };
 
+  if (placeDetail) {
+    return renderPlaceDetail();
+  }
+
+  if (isAllMyPlacesOpen) {
+    return (
+      <main className="App">
+        <section className="travel-shell district-detail-shell" aria-labelledby="my-travel-places-title">
+          <div className="page-navigation">
+            <div className="travel-navigation-actions">
+              <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
+              <button type="button" className="home-button" onClick={() => setIsAllMyPlacesOpen(false)}>전국 지도</button>
+            </div>
+            {renderSessionAction()}
+          </div>
+
+          <div className="travel-header district-detail-header">
+            <span className="eyebrow">My places</span>
+            <h1 id="my-travel-places-title">내가 작성한 맛집·여행지</h1>
+            <p>저장한 장소 기록을 최신순으로 모아 보여줍니다.</p>
+          </div>
+
+          <section className="travel-place-board">
+            {placeMessage && <p className="travel-place-message">{placeMessage}</p>}
+            {renderPlaceCategoryFilter(myPlaces)}
+            {renderPlaceList(filterPlacesByCategory(myPlaces), {
+              editable: false,
+              detailEditable: true,
+              showLocation: true,
+              emptyText: placeCategoryFilter === 'all'
+                ? '아직 작성한 맛집·여행지 기록이 없습니다.'
+                : '선택한 분류의 기록이 없습니다.',
+            })}
+          </section>
+        </section>
+      </main>
+    );
+  }
+
   if (selectedRegion && selectedDistrict) {
     const locationName = `${selectedRegion.name} ${selectedDistrict}`;
     const fullQuery = `${locationName} ${searchQuery}`.trim();
@@ -171,21 +993,108 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
       },
     ];
 
+    if (isPlaceManagerOpen) {
+      return (
+        <main className="App">
+          <section className="travel-shell district-detail-shell" aria-labelledby="place-manager-title">
+            <div className="page-navigation">
+              <div className="travel-navigation-actions">
+                <button type="button" className="home-button" onClick={onBack}>메인으로</button>
+                <button type="button" className="home-button" onClick={() => setIsPlaceManagerOpen(false)}>검색으로</button>
+                <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>{selectedRegion.name} 지역</button>
+              </div>
+              {renderSessionAction()}
+            </div>
+
+            <div className="travel-header district-detail-header">
+              <span className="eyebrow">{locationName} · My places</span>
+              <h1 id="place-manager-title">나만의 맛집·여행지 작성</h1>
+              <p>내가 다녀온 장소를 저장하고, 공개한 기록은 다른 사람도 볼 수 있습니다.</p>
+            </div>
+
+            {renderPlaceBoard(locationName)}
+          </section>
+        </main>
+      );
+    }
+
+    if (isPublicPlaceListOpen) {
+      return (
+        <main className="App">
+          <section className="travel-shell district-detail-shell" aria-labelledby="public-place-list-title">
+            <div className="page-navigation">
+              <div className="travel-navigation-actions">
+                <button type="button" className="home-button" onClick={onBack}>메인으로</button>
+                <button type="button" className="home-button" onClick={() => setIsPublicPlaceListOpen(false)}>검색으로</button>
+                <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>{selectedRegion.name} 지역</button>
+              </div>
+              {renderSessionAction()}
+            </div>
+
+            <div className="travel-header district-detail-header">
+              <span className="eyebrow">{locationName} · Shared places</span>
+              <h1 id="public-place-list-title">사용자 공개 맛집·여행지</h1>
+              <p>이 사이트 사용자가 공개한 {publicPlaces.length.toLocaleString()}개의 장소입니다.</p>
+            </div>
+
+            <section className="travel-place-board">
+              {renderPlaceCategoryFilter(publicPlaces)}
+              {renderPlaceList(filterPlacesByCategory(publicPlaces), {
+                editable: false,
+                emptyText: placeCategoryFilter === 'all'
+                  ? '아직 공개된 맛집·여행지 정보가 없습니다.'
+                  : '선택한 분류의 공개 기록이 없습니다.',
+              })}
+            </section>
+          </section>
+        </main>
+      );
+    }
+
     return (
       <main className="App">
         <section className="travel-shell district-detail-shell" aria-labelledby="district-title">
           <div className="page-navigation">
             <div className="travel-navigation-actions">
-              <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>← {selectedRegion.name} 지역 선택</button>
+              <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
               <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>전국 지도</button>
+              <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>{selectedRegion.name} 지역</button>
             </div>
-            <button type="button" className="text-logout-button" onClick={user ? onLogout : onLogin}>{user ? '로그아웃' : '로그인'}</button>
+            {renderSessionAction()}
           </div>
 
           <div className="travel-header district-detail-header">
             <span className="eyebrow">{selectedRegion.name} · Travel search</span>
             <h1 id="district-title">{selectedDistrict} 여행·맛집 찾기</h1>
             <p>찾고 싶은 장소나 음식, 여행 테마를 입력하세요.</p>
+          </div>
+
+          <div className="travel-place-entry-grid">
+            <div className="travel-place-entry">
+              <div>
+                <strong>나만의 맛집·여행지</strong>
+                <span>직접 다녀온 곳을 기록하고 공개할 수 있어요.</span>
+              </div>
+              <button type="button" onClick={openPlaceManager}>
+                작성하기
+              </button>
+            </div>
+            <div className="travel-public-place-entry">
+              <div>
+                <strong>사용자 공개 리스트 {publicPlaces.length.toLocaleString()}개</strong>
+                <span>{publicPlaces.length > 0 ? `${locationName} 공개 기록을 볼 수 있어요.` : '아직 공개된 기록이 없습니다.'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlaceCategoryFilter('all');
+                  setIsPublicPlaceListOpen(true);
+                }}
+                disabled={publicPlaces.length === 0}
+              >
+                리스트 보기
+              </button>
+            </div>
           </div>
 
           <form className="travel-search-form" onSubmit={submitSearch}>
@@ -200,7 +1109,7 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
                 autoFocus
                 required
               />
-              <button type="submit" disabled={isSearching}>{isSearching ? '검색 중' : '포털 검색'}</button>
+              <button type="submit" disabled={isSearching}>{isSearching ? '검색 중' : '검색'}</button>
             </div>
             <div className="travel-quick-keywords" aria-label="추천 검색어">
               {QUICK_KEYWORDS.map((keyword) => (
@@ -233,12 +1142,21 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
               ) : (
                 <div className="portal-result-sections">
                   {searchResults.map((section) => (
-                    <section className={`portal-result-section section-${section.id}`} key={section.id}>
+                    <section className={`portal-result-section section-${section.id} ${section.id === 'local' && isLocalExpanded ? 'local-expanded' : ''}`} key={section.id}>
                       <div className="portal-result-section-header">
                         <h3>{section.label}</h3>
-                        <span>{section.ok ? `${section.total.toLocaleString()}건` : `오류 ${section.status}`}</span>
+                        <div className="portal-result-section-actions">
+                          {section.id === 'local' && section.ok && section.items.length > 0 && (
+                            <button type="button" onClick={() => setIsLocalExpanded((expanded) => !expanded)}>
+                              {isLocalExpanded ? '지역 접기' : '지역 보기'}
+                            </button>
+                          )}
+                          <span>{section.ok ? `${section.total.toLocaleString()}건` : `오류 ${section.status}`}</span>
+                        </div>
                       </div>
-                      {section.ok && section.items.length > 0 ? (
+                      {section.id === 'local' && section.ok && section.items.length > 0 && !isLocalExpanded ? (
+                        <p className="portal-result-empty">지역 결과는 ‘지역 보기’를 누르면 펼쳐집니다.</p>
+                      ) : section.ok && section.items.length > 0 ? (
                         <>
                           <div className="portal-result-list">
                             {section.items.map((item, index) => {
@@ -318,21 +1236,30 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
         <section className="travel-shell" aria-labelledby="region-title">
           <div className="page-navigation">
             <div className="travel-navigation-actions">
-              <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>← 전국 지도</button>
+              <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
+              <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>전국 지도</button>
             </div>
-            <button type="button" className="text-logout-button" onClick={user ? onLogout : onLogin}>{user ? '로그아웃' : '로그인'}</button>
+            {renderSessionAction()}
           </div>
           <div className="travel-header">
             <span className="eyebrow">{selectedRegion.type} · Choose an area</span>
             <h1 id="region-title">{selectedRegion.name} 세부 지역</h1>
-            <p>여행·맛집 코스를 살펴볼 시·군·구를 선택하세요.</p>
           </div>
+          <p className="district-count-guide">숫자가 표시된 지역은 사이트 사용자가 공개한 맛집·여행지 기록이 있는 곳입니다.</p>
           <div className="district-grid">
-            {selectedRegion.districts.map((district) => (
-              <button type="button" key={district} onClick={() => openDistrict(district)}>
-                <span>{district}</span><small>코스 보기 →</small>
-              </button>
-            ))}
+            {selectedRegion.districts.map((district) => {
+              const publicCount = districtPublicCounts[district] || 0;
+
+              return (
+                <button type="button" key={district} onClick={() => openDistrict(district)}>
+                  <span className="district-name-row">
+                    <span>{district}</span>
+                    {publicCount > 0 && <em>{publicCount.toLocaleString()}</em>}
+                  </span>
+                  <small>코스 보기 →</small>
+                </button>
+              );
+            })}
           </div>
         </section>
       </main>
@@ -344,7 +1271,7 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
       <section className="travel-shell" aria-labelledby="travel-title">
         <div className="page-navigation">
           <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
-          <button type="button" className="text-logout-button" onClick={user ? onLogout : onLogin}>{user ? '로그아웃' : '로그인'}</button>
+          {renderSessionAction()}
         </div>
         <div className="travel-header">
           <span className="eyebrow">Travel course</span>

@@ -447,6 +447,11 @@ function EnglishMemoryPage({ user, token, onBack, onLogout }) {
     return (
       <main className="App study-page">
         <section className="study-shell" aria-labelledby="study-word">
+          <div className="page-navigation study-navigation">
+            <button type="button" className="home-button" onClick={() => { exitStudy(); onBack(); }}>← 메인으로</button>
+            <button type="button" className="text-logout-button" onClick={() => { exitStudy(); onLogout(); }}>로그아웃</button>
+          </div>
+
           <div className="study-progress">
             <span>{isPlaying ? '영어 암기 중' : '일시 중지'}</span>
             <strong>{currentIndex + 1} / {studyWords.length}</strong>

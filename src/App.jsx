@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import './App.css';
+import AccountSettingsPage from './AccountSettingsPage.jsx';
 import EnglishMemoryPage from './EnglishMemoryPage.jsx';
 import LoginPage, { AUTH_SESSION_KEY } from './LoginPage.jsx';
 import TravelCoursePage from './TravelCoursePage.jsx';
@@ -543,6 +544,8 @@ function App() {
   if (activePage === 'login') {
     const loginPrompt = pendingProtectedPage === 'travel'
       ? '로그인하면 다른 기능도 함께 사용할 수 있습니다.'
+      : pendingProtectedPage === 'myTravelPlaces'
+        ? '내가 작성한 맛집·여행지는 로그인 후 볼 수 있습니다.'
       : '이 기능은 로그인 후 사용할 수 있습니다.';
 
     return (
@@ -566,7 +569,10 @@ function App() {
             <div className="user-bar">
               <span className="eyebrow">{currentUser ? `${currentUser.name}님, 반가워요` : '둘러보기 모드'}</span>
               {currentUser ? (
-                <button type="button" onClick={onLogout}>로그아웃</button>
+                <div className="user-actions">
+                  <button type="button" onClick={() => setActivePage('settings')}>설정</button>
+                  <button type="button" onClick={onLogout}>로그아웃</button>
+                </div>
               ) : (
                 <button type="button" onClick={() => setActivePage('login')}>로그인</button>
               )}
@@ -576,6 +582,24 @@ function App() {
           </div>
 
           <div className="feature-grid" aria-label="기능 목록">
+            <button type="button" className="feature-card travel-feature" onClick={() => setActivePage('travel')}>
+              <span className="feature-icon" aria-hidden="true">⌖</span>
+              <span className="feature-copy">
+                <strong>지역별 여행·맛집 코스</strong>
+                <small>지역을 골라 여행지와 맛집 코스를 살펴봐요.</small>
+              </span>
+              <span className="feature-arrow" aria-hidden="true">→</span>
+            </button>
+
+            <button type="button" className="feature-card my-travel-feature" onClick={() => openProtectedPage('myTravelPlaces')}>
+              <span className="feature-icon" aria-hidden="true">★</span>
+              <span className="feature-copy">
+                <strong>내가 작성한 맛집/여행지 보기</strong>
+                <small>저장한 장소 기록을 한 번에 확인해요.</small>
+              </span>
+              <span className="feature-arrow" aria-hidden="true">→</span>
+            </button>
+
             <button type="button" className="feature-card todo-feature" onClick={() => openProtectedPage('todos')}>
               <span className="feature-icon" aria-hidden="true">✓</span>
               <span className="feature-copy">
@@ -590,15 +614,6 @@ function App() {
               <span className="feature-copy">
                 <strong>영어 암기</strong>
                 <small>영어 단어를 차곡차곡 익혀요.</small>
-              </span>
-              <span className="feature-arrow" aria-hidden="true">→</span>
-            </button>
-
-            <button type="button" className="feature-card travel-feature" onClick={() => setActivePage('travel')}>
-              <span className="feature-icon" aria-hidden="true">⌖</span>
-              <span className="feature-copy">
-                <strong>지역별 여행·맛집 코스</strong>
-                <small>지역을 골라 여행지와 맛집 코스를 살펴봐요.</small>
               </span>
               <span className="feature-arrow" aria-hidden="true">→</span>
             </button>
@@ -636,12 +651,66 @@ function App() {
     return (
       <TravelCoursePage
         user={currentUser}
+        token={authSession?.token}
         onBack={() => setActivePage('home')}
         onLogout={onLogout}
         onLogin={() => {
           setPendingProtectedPage('travel');
           setActivePage('login');
         }}
+      />
+    );
+  }
+
+  if (activePage === 'myTravelPlaces') {
+    if (!currentUser) {
+      return (
+        <LoginPage
+          onBack={() => setActivePage('home')}
+          prompt="내가 작성한 맛집·여행지는 로그인 후 볼 수 있습니다."
+          onLogin={(session) => {
+            setAuthSession(session);
+            setActivePage('myTravelPlaces');
+          }}
+        />
+      );
+    }
+
+    return (
+      <TravelCoursePage
+        initialView="myPlaces"
+        user={currentUser}
+        token={authSession.token}
+        onBack={() => setActivePage('home')}
+        onLogout={onLogout}
+        onLogin={() => {
+          setPendingProtectedPage('myTravelPlaces');
+          setActivePage('login');
+        }}
+      />
+    );
+  }
+
+  if (activePage === 'settings') {
+    if (!currentUser) {
+      return (
+        <LoginPage
+          onBack={() => setActivePage('home')}
+          prompt="설정은 로그인 후 사용할 수 있습니다."
+          onLogin={(session) => {
+            setAuthSession(session);
+            setActivePage('settings');
+          }}
+        />
+      );
+    }
+
+    return (
+      <AccountSettingsPage
+        user={currentUser}
+        token={authSession.token}
+        onBack={() => setActivePage('home')}
+        onLogout={onLogout}
       />
     );
   }

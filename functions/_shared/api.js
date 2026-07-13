@@ -2,6 +2,7 @@ const USERS_KEY = 'users';
 const SESSIONS_KEY = 'sessions';
 const TODOS_KEY = 'todos';
 const WORDS_KEY = 'words';
+const TRAVEL_PLACES_KEY = 'travelPlaces';
 const SESSION_DURATION_MS = 30 * 60 * 1000;
 
 function getStore(env) {
@@ -59,6 +60,14 @@ async function readWords(env) {
 
 async function writeWords(env, words) {
   await writeList(env, WORDS_KEY, words);
+}
+
+async function readTravelPlaces(env) {
+  return readList(env, TRAVEL_PLACES_KEY);
+}
+
+async function writeTravelPlaces(env, places) {
+  await writeList(env, TRAVEL_PLACES_KEY, places);
 }
 
 function sendJson(data, status = 200) {
@@ -182,6 +191,46 @@ function isWordList(value) {
   ));
 }
 
+function normalizePlaceInput(value) {
+  const tags = Array.isArray(value?.tags)
+    ? value.tags
+    : String(value?.tags || '')
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+  return {
+    title: String(value?.title || '').trim(),
+    category: ['restaurant', 'travel'].includes(value?.category) ? value.category : 'restaurant',
+    region: String(value?.region || '').trim(),
+    district: String(value?.district || '').trim(),
+    address: String(value?.address || '').trim(),
+    memo: String(value?.memo || '').trim(),
+    tags: tags.slice(0, 6),
+    isPublic: Boolean(value?.isPublic),
+    isAuthorPublic: Boolean(value?.isPublic && value?.isAuthorPublic),
+  };
+}
+
+function publicTravelPlace(place) {
+  return {
+    id: place.id,
+    userId: place.userId,
+    authorName: place.isAuthorPublic ? place.authorName : '',
+    title: place.title,
+    category: place.category,
+    region: place.region,
+    district: place.district,
+    address: place.address,
+    memo: place.memo,
+    tags: place.tags,
+    isPublic: place.isPublic,
+    isAuthorPublic: Boolean(place.isAuthorPublic),
+    createdAt: place.createdAt,
+    updatedAt: place.updatedAt,
+  };
+}
+
 function handleError(error) {
   if (error.message === 'TODO_KV binding is missing') {
     return sendJson({ message: 'Cloudflare KV binding TODO_KV is missing.' }, 500);
@@ -201,15 +250,19 @@ export {
   isTodoList,
   isWordList,
   normalizeEmail,
+  normalizePlaceInput,
   publicUser,
+  publicTravelPlace,
   readJson,
   readSessions,
   readTodos,
+  readTravelPlaces,
   readUsers,
   readWords,
   sendJson,
   writeSessions,
   writeTodos,
+  writeTravelPlaces,
   writeUsers,
   writeWords,
 };

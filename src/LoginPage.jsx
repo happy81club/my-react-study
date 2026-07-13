@@ -25,6 +25,7 @@ function LoginPage({ onBack, onLogin, prompt }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isSignup = mode === 'signup';
+  const isReset = mode === 'reset';
 
   const submitAuth = async (event) => {
     event.preventDefault();
@@ -69,6 +70,35 @@ function LoginPage({ onBack, onLogin, prompt }) {
     }
   };
 
+  const submitPasswordReset = async (event) => {
+    event.preventDefault();
+    setMessage('');
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/password-reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+      const data = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(data.message || `요청에 실패했습니다. (${response.status})`);
+      }
+
+      setMessage(data.temporaryPassword
+        ? `비밀번호가 ${data.temporaryPassword}로 초기화되었습니다. 로그인 후 설정에서 변경해 주세요.`
+        : data.message || '가입된 이메일이면 비밀번호를 1234로 초기화합니다.');
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const switchMode = (nextMode) => {
     setMode(nextMode);
     setMessage('');
@@ -79,75 +109,109 @@ function LoginPage({ onBack, onLogin, prompt }) {
       <section className="auth-shell" aria-labelledby="auth-title">
         {onBack && (
           <div className="page-navigation auth-navigation">
-            <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
+            <button type="button" className="home-button" onClick={onBack}>메인으로</button>
           </div>
         )}
         <div className="auth-header">
-          <span className="eyebrow">계정 시작</span>
-          <h1 id="auth-title">{isSignup ? '회원가입' : '로그인'}</h1>
-          <p>{prompt || (isSignup ? '내 할 일을 따로 저장할 계정을 만들어 주세요.' : '가입한 계정으로 다시 들어오세요.')}</p>
+          <h1 id="auth-title">{isReset ? '비밀번호 찾기' : isSignup ? '회원가입' : '로그인'}</h1>
+          <p>
+            {isReset
+              ? '가입한 이메일을 입력하면 비밀번호를 1234로 초기화합니다.'
+              : prompt || (isSignup ? '내 할 일을 따로 저장할 계정을 만들어 주세요.' : '가입한 계정으로 다시 들어오세요.')}
+          </p>
         </div>
 
-        <div className="auth-tabs" role="tablist" aria-label="인증 방식">
-          <button
-            type="button"
-            className={!isSignup ? 'active' : ''}
-            onClick={() => switchMode('login')}
-          >
-            로그인
-          </button>
-          <button
-            type="button"
-            className={isSignup ? 'active' : ''}
-            onClick={() => switchMode('signup')}
-          >
-            가입
-          </button>
-        </div>
+        {!isReset && (
+          <div className="auth-tabs" role="tablist" aria-label="인증 방식">
+            <button
+              type="button"
+              className={!isSignup ? 'active' : ''}
+              onClick={() => switchMode('login')}
+            >
+              로그인
+            </button>
+            <button
+              type="button"
+              className={isSignup ? 'active' : ''}
+              onClick={() => switchMode('signup')}
+            >
+              가입
+            </button>
+          </div>
+        )}
 
-        <form className="auth-form" onSubmit={submitAuth}>
-          {isSignup && (
+        {isReset ? (
+          <form className="auth-form" onSubmit={submitPasswordReset}>
             <label>
-              <span>이름</span>
+              <span>이메일</span>
               <input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                minLength={2}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                type="email"
                 required
-                placeholder="홍길동"
+                placeholder="me@example.com"
               />
             </label>
-          )}
 
-          <label>
-            <span>이메일</span>
-            <input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              type="email"
-              required
-              placeholder="me@example.com"
-            />
-          </label>
+            {message && <p className="auth-message">{message}</p>}
 
-          <label>
-            <span>비밀번호</span>
-            <input
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              type="password"
-              minLength={4}
-              required
-              placeholder="4자 이상"
-            />
-          </label>
+            <button className="auth-submit" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? '처리 중' : '1234로 초기화'}
+            </button>
+            <button type="button" className="auth-link-button" onClick={() => switchMode('login')}>
+              로그인으로 돌아가기
+            </button>
+          </form>
+        ) : (
+          <form className="auth-form" onSubmit={submitAuth}>
+            {isSignup && (
+              <label>
+                <span>이름</span>
+                <input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  minLength={2}
+                  required
+                  placeholder="홍길동"
+                />
+              </label>
+            )}
 
-          {message && <p className="auth-message">{message}</p>}
+            <label>
+              <span>이메일</span>
+              <input
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                type="email"
+                required
+                placeholder="me@example.com"
+              />
+            </label>
 
-          <button className="auth-submit" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? '처리 중' : isSignup ? '가입하기' : '로그인'}
-          </button>
-        </form>
+            <label>
+              <span>비밀번호</span>
+              <input
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                type="password"
+                minLength={4}
+                required
+                placeholder="4자 이상"
+              />
+            </label>
+
+            {message && <p className="auth-message">{message}</p>}
+
+            <button className="auth-submit" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? '처리 중' : isSignup ? '가입하기' : '로그인'}
+            </button>
+            {!isSignup && (
+              <button type="button" className="auth-link-button" onClick={() => switchMode('reset')}>
+                비밀번호를 잊으셨나요?
+              </button>
+            )}
+          </form>
+        )}
       </section>
     </main>
   );
