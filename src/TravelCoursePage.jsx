@@ -175,7 +175,10 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
       <main className="App">
         <section className="travel-shell district-detail-shell" aria-labelledby="district-title">
           <div className="page-navigation">
-            <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>← {selectedRegion.name} 지역 선택</button>
+            <div className="travel-navigation-actions">
+              <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>← {selectedRegion.name} 지역 선택</button>
+              <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>전국 지도</button>
+            </div>
             <button type="button" className="text-logout-button" onClick={user ? onLogout : onLogin}>{user ? '로그아웃' : '로그인'}</button>
           </div>
 
@@ -314,7 +317,9 @@ function TravelCoursePage({ onBack, onLogin, onLogout, user }) {
       <main className="App">
         <section className="travel-shell" aria-labelledby="region-title">
           <div className="page-navigation">
-            <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>← 전국 지도</button>
+            <div className="travel-navigation-actions">
+              <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>← 전국 지도</button>
+            </div>
             <button type="button" className="text-logout-button" onClick={user ? onLogout : onLogin}>{user ? '로그아웃' : '로그인'}</button>
           </div>
           <div className="travel-header">

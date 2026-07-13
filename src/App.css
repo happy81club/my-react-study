@@ -1360,6 +1360,12 @@
   gap: 16px;
 }
 
+.travel-navigation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .home-button,
 .text-logout-button {
   padding: 9px 12px;
