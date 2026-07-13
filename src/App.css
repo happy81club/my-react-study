@@ -359,21 +359,36 @@
 }
 
 .district-detail-header {
-  margin-bottom: 22px;
+  margin: 18px 0 16px;
+}
+
+.district-detail-header .eyebrow {
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.district-detail-header h1 {
+  font-size: clamp(25px, 4.8vw, 36px);
+  line-height: 1.08;
+}
+
+.district-detail-header p {
+  margin-top: 7px;
+  font-size: 14px;
 }
 
 .travel-search-form {
   display: grid;
-  gap: 12px;
-  padding: 22px;
+  gap: 9px;
+  padding: 15px 17px;
   border: 1px solid #fed7aa;
-  border-radius: 22px;
+  border-radius: 18px;
   background: linear-gradient(145deg, #fff7ed, #ffffff);
 }
 
 .travel-search-location {
   color: #9a3412;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 850;
 }
 
@@ -385,13 +400,14 @@
 
 .travel-search-row input {
   min-width: 0;
-  min-height: 54px;
-  padding: 0 18px;
+  min-height: 42px;
+  padding: 0 14px;
   border: 1px solid #cbd5e1;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #ffffff;
   color: #17202a;
   font: inherit;
+  font-size: 14px;
   outline: none;
 }
 
@@ -401,27 +417,28 @@
 }
 
 .travel-search-row button {
-  min-width: 150px;
-  padding: 0 22px;
-  border-radius: 14px;
+  min-width: 124px;
+  padding: 0 18px;
+  border-radius: 12px;
   background: #ea580c;
   color: #ffffff;
+  font-size: 14px;
   font-weight: 900;
 }
 
 .travel-quick-keywords {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 6px;
 }
 
 .travel-quick-keywords button {
-  padding: 8px 11px;
+  padding: 6px 9px;
   border: 1px solid #fed7aa;
   border-radius: 999px;
   background: #ffffff;
   color: #9a3412;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .travel-quick-keywords button:hover {
@@ -430,7 +447,7 @@
 }
 
 .travel-search-results {
-  margin-top: 22px;
+  margin-top: 18px;
 }
 
 .travel-map-links {
@@ -444,16 +461,19 @@
   align-items: end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 11px;
 }
 
 .travel-search-results-heading h2 {
   margin: 3px 0 0;
   color: #17202a;
+  font-size: 20px;
+  line-height: 1.2;
 }
 
 .travel-search-results-heading small {
   color: #64748b;
+  font-size: 12px;
 }
 
 .travel-search-service-grid {
@@ -518,13 +538,13 @@
 
 .portal-result-sections {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .portal-result-section {
-  padding: 18px;
+  padding: 14px;
   border: 1px solid #e2e8f0;
-  border-radius: 18px;
+  border-radius: 14px;
   background: #ffffff;
 }
 
@@ -2037,7 +2057,7 @@ button:hover {
   }
 
   .travel-search-form {
-    padding: 16px;
+    padding: 14px;
   }
 
   .travel-search-row {
@@ -2045,7 +2065,7 @@ button:hover {
   }
 
   .travel-search-row button {
-    min-height: 48px;
+    min-height: 42px;
   }
 
   .travel-search-results-heading {
