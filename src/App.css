@@ -364,17 +364,17 @@
 
 .district-detail-header .eyebrow {
   margin-bottom: 6px;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .district-detail-header h1 {
-  font-size: clamp(25px, 4.8vw, 36px);
+  font-size: clamp(22px, 4.2vw, 31px);
   line-height: 1.08;
 }
 
 .district-detail-header p {
   margin-top: 7px;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .travel-search-form {
@@ -388,7 +388,7 @@
 
 .travel-search-location {
   color: #9a3412;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 850;
 }
 
@@ -407,7 +407,7 @@
   background: #ffffff;
   color: #17202a;
   font: inherit;
-  font-size: 14px;
+  font-size: 12px;
   outline: none;
 }
 
@@ -422,7 +422,7 @@
   border-radius: 12px;
   background: #ea580c;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 900;
 }
 
@@ -438,7 +438,7 @@
   border-radius: 999px;
   background: #ffffff;
   color: #9a3412;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .travel-quick-keywords button:hover {
@@ -467,13 +467,13 @@
 .travel-search-results-heading h2 {
   margin: 3px 0 0;
   color: #17202a;
-  font-size: 20px;
+  font-size: 17px;
   line-height: 1.2;
 }
 
 .travel-search-results-heading small {
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .travel-search-service-grid {
@@ -559,7 +559,7 @@
 .portal-result-section-header h3 {
   margin: 0;
   color: #17202a;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .portal-result-section-header span {
@@ -594,13 +594,14 @@
 
 .portal-result-card strong {
   color: #17202a;
+  font-size: 13px;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .portal-result-card span {
   color: #64748b;
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -628,7 +629,7 @@
 .section-local .portal-result-card strong {
   grid-row: 1 / span 2;
   min-width: 0;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -637,7 +638,7 @@
 
 .section-local .portal-result-card span {
   min-width: 0;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
