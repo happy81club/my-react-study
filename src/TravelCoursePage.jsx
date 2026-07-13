@@ -30,62 +30,144 @@ const LABEL_POSITIONS = {
   jeju: [54, 94],
 };
 
+const QUICK_KEYWORDS = ['맛집', '카페', '여행지', '데이트 코스', '아이와 가볼 만한 곳', '현지인 추천'];
+
+const stripNaverText = (value) => String(value || '')
+  .replace(/<[^>]*>/g, '')
+  .replace(/&quot;/g, '"')
+  .replace(/&amp;/g, '&')
+  .replace(/&lt;/g, '<')
+  .replace(/&gt;/g, '>');
+
+const getResultTitle = (item) => stripNaverText(item.title || item.name);
+const getResultDescription = (item) => stripNaverText(item.description || item.address || item.roadAddress);
+const getResultLink = (item) => item.link || item.originallink;
+
 function TravelCoursePage({ onBack, onLogout }) {
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [searchText, setSearchText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [loadingSectionId, setLoadingSectionId] = useState('');
+  const [searchError, setSearchError] = useState('');
 
   const openRegion = (region) => {
     setSelectedRegion(region);
     setSelectedDistrict('');
     setSearchText('');
     setSearchQuery('');
+    setSearchResults([]);
+    setSearchError('');
   };
 
   const openDistrict = (district) => {
     setSelectedDistrict(district);
     setSearchText('');
     setSearchQuery('');
+    setSearchResults([]);
+    setSearchError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const searchPortal = async (keyword) => {
+    const trimmedKeyword = keyword.trim();
+
+    if (!trimmedKeyword || !selectedRegion || !selectedDistrict) {
+      return;
+    }
+
+    const query = `${selectedRegion.name} ${selectedDistrict} ${trimmedKeyword}`;
+    setSearchText(trimmedKeyword);
+    setSearchQuery(trimmedKeyword);
+    setIsSearching(true);
+    setLoadingSectionId('');
+    setSearchError('');
+
+    try {
+      const response = await fetch(`/api/naver/search?query=${encodeURIComponent(query)}&display=6`);
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.message || '검색 결과를 불러오지 못했습니다.');
+      }
+
+      setSearchResults(Array.isArray(data?.sections) ? data.sections : []);
+    } catch (error) {
+      setSearchResults([]);
+      setSearchError(error.message || '검색 결과를 불러오지 못했습니다.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const loadMoreSection = async (section) => {
+    if (!section?.id || !selectedRegion || !selectedDistrict || !searchQuery) {
+      return;
+    }
+
+    const query = `${selectedRegion.name} ${selectedDistrict} ${searchQuery}`;
+    const nextStart = section.items.length + 1;
+    setLoadingSectionId(section.id);
+    setSearchError('');
+
+    try {
+      const response = await fetch(
+        `/api/naver/search?query=${encodeURIComponent(query)}&display=6&section=${encodeURIComponent(section.id)}&start=${nextStart}`,
+      );
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.message || '다음 검색 결과를 불러오지 못했습니다.');
+      }
+
+      const nextSection = Array.isArray(data?.sections) ? data.sections[0] : null;
+
+      if (!nextSection) {
+        throw new Error('다음 검색 결과를 찾지 못했습니다.');
+      }
+
+      setSearchResults((currentSections) => currentSections.map((currentSection) => (
+        currentSection.id === section.id
+          ? {
+              ...nextSection,
+              items: [...currentSection.items, ...nextSection.items],
+              total: nextSection.total,
+            }
+          : currentSection
+      )));
+    } catch (error) {
+      setSearchError(error.message || '다음 검색 결과를 불러오지 못했습니다.');
+    } finally {
+      setLoadingSectionId('');
+    }
   };
 
   const submitSearch = (event) => {
     event.preventDefault();
-    const keyword = searchText.trim();
-
-    if (!keyword || !selectedRegion || !selectedDistrict) {
-      return;
-    }
-
-    const query = `${selectedRegion.name} ${selectedDistrict} ${keyword}`;
-    setSearchQuery(keyword);
-    window.open(
-      `https://search.naver.com/search.naver?query=${encodeURIComponent(query)}`,
-      '_blank',
-      'noopener,noreferrer',
-    );
+    searchPortal(searchText);
   };
 
   if (selectedRegion && selectedDistrict) {
     const locationName = `${selectedRegion.name} ${selectedDistrict}`;
     const fullQuery = `${locationName} ${searchQuery}`.trim();
-    const quickKeywords = ['맛집', '카페', '여행지', '데이트 코스', '아이와 가볼 만한 곳', '현지인 추천'];
+    const mapQuery = fullQuery || locationName;
     const searchServices = [
       {
         name: '네이버 지도',
         description: '장소 정보, 리뷰와 영업시간을 확인해요.',
-        href: `https://map.naver.com/p/search/${encodeURIComponent(fullQuery)}`,
-      },
-      {
-        name: '카카오맵',
-        description: '주변 장소와 이동 경로를 함께 살펴봐요.',
-        href: `https://map.kakao.com/link/search/${encodeURIComponent(fullQuery)}`,
+        href: `https://map.naver.com/p/search/${encodeURIComponent(mapQuery)}`,
       },
       {
         name: '구글 지도',
         description: '사진과 방문자 리뷰를 비교해 봐요.',
-        href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullQuery)}`,
+        href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`,
+      },
+      {
+        name: '다음 지도',
+        description: '주변 장소와 이동 경로를 함께 살펴봐요.',
+        href: `https://map.kakao.com/link/search/${encodeURIComponent(mapQuery)}`,
       },
     ];
 
@@ -115,16 +197,15 @@ function TravelCoursePage({ onBack, onLogout }) {
                 autoFocus
                 required
               />
-              <button type="submit">포털 통합검색</button>
+              <button type="submit" disabled={isSearching}>{isSearching ? '검색 중' : '포털 검색'}</button>
             </div>
             <div className="travel-quick-keywords" aria-label="추천 검색어">
-              {quickKeywords.map((keyword) => (
+              {QUICK_KEYWORDS.map((keyword) => (
                 <button
                   type="button"
                   key={keyword}
                   onClick={() => {
-                    setSearchText(keyword);
-                    setSearchQuery(keyword);
+                    searchPortal(keyword);
                   }}
                 >
                   {keyword}
@@ -138,19 +219,64 @@ function TravelCoursePage({ onBack, onLogout }) {
               <div className="travel-search-results-heading">
                 <div>
                   <span className="eyebrow">Search results</span>
-                  <h2>‘{fullQuery}’ 검색하기</h2>
+                  <h2>‘{fullQuery}’ 검색 결과</h2>
                 </div>
-                <small>블로그·카페·플레이스 통합검색을 열었습니다. 아래에서 지도 검색도 할 수 있어요.</small>
+                <small>네이버 검색 API 결과를 앱 화면 안에 표시합니다.</small>
               </div>
-              <div className="travel-search-service-grid">
-                {searchServices.map((service) => (
-                  <a key={service.name} href={service.href} target="_blank" rel="noreferrer">
-                    <strong>{service.name}</strong>
-                    <span>{service.description}</span>
-                    <i>검색 결과 보기 →</i>
-                  </a>
-                ))}
-              </div>
+              {isSearching ? (
+                <p className="travel-search-status">검색 결과를 불러오는 중입니다.</p>
+              ) : searchError ? (
+                <p className="travel-search-status error">{searchError}</p>
+              ) : (
+                <div className="portal-result-sections">
+                  {searchResults.map((section) => (
+                    <section className={`portal-result-section section-${section.id}`} key={section.id}>
+                      <div className="portal-result-section-header">
+                        <h3>{section.label}</h3>
+                        <span>{section.ok ? `${section.total.toLocaleString()}건` : `오류 ${section.status}`}</span>
+                      </div>
+                      {section.ok && section.items.length > 0 ? (
+                        <>
+                          <div className="portal-result-list">
+                            {section.items.map((item, index) => {
+                              const title = getResultTitle(item);
+                              const description = getResultDescription(item);
+                              const link = getResultLink(item);
+
+                              return (
+                                <a
+                                  className="portal-result-card"
+                                  href={link || `https://search.naver.com/search.naver?query=${encodeURIComponent(fullQuery)}`}
+                                  key={`${section.id}-${link || title}-${index}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <strong>{title || '제목 없음'}</strong>
+                                  {description && <span>{description}</span>}
+                                  {item.bloggername && <small>{stripNaverText(item.bloggername)}</small>}
+                                  {item.postdate && <small>{item.postdate}</small>}
+                                </a>
+                              );
+                            })}
+                          </div>
+                          {section.items.length < Math.min(section.total, 1000) && (
+                            <button
+                              className="portal-result-more"
+                              type="button"
+                              onClick={() => loadMoreSection(section)}
+                              disabled={loadingSectionId === section.id}
+                            >
+                              {loadingSectionId === section.id ? '불러오는 중' : `${section.label} 다음 결과 더 보기`}
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <p className="portal-result-empty">{section.message || '표시할 결과가 없습니다.'}</p>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              )}
             </section>
           ) : (
             <div className="travel-search-empty">
@@ -159,6 +285,25 @@ function TravelCoursePage({ onBack, onLogout }) {
               <p>검색어를 입력하거나 추천 검색어를 선택해 보세요.</p>
             </div>
           )}
+
+          <section className="travel-map-links" aria-labelledby="map-links-title">
+            <div className="travel-search-results-heading">
+              <div>
+                <span className="eyebrow">Map search</span>
+                <h2 id="map-links-title">지도에서 다시 보기</h2>
+              </div>
+              <small>현재 지역과 검색어를 지도 서비스에서 바로 열 수 있습니다.</small>
+            </div>
+            <div className="travel-search-service-grid">
+              {searchServices.map((service) => (
+                <a key={service.name} href={service.href} target="_blank" rel="noreferrer">
+                  <strong>{service.name}</strong>
+                  <span>{service.description}</span>
+                  <i>지도 검색 보기 →</i>
+                </a>
+              ))}
+            </div>
+          </section>
         </section>
       </main>
     );

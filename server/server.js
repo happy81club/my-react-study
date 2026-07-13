@@ -9,13 +9,48 @@ const __dirname = path.dirname(__filename);
 
 // 로컬 개발용 API 서버는 별도 DB 없이 data 폴더의 JSON 파일을 작은 저장소처럼 사용한다.
 // __dirname은 server 폴더이므로, 프로젝트 루트의 data 폴더를 기준 경로로 잡는다.
-const dataDir = path.resolve(__dirname, '..', 'data');
+const projectRoot = path.resolve(__dirname, '..');
+const dataDir = path.resolve(projectRoot, 'data');
 const todosFile = path.join(dataDir, 'todos.json');
 const usersFile = path.join(dataDir, 'users.json');
 const sessionsFile = path.join(dataDir, 'sessions.json');
 const wordsFile = path.join(dataDir, 'words.json');
 const port = process.env.PORT || 3002;
 const SESSION_DURATION_MS = 30 * 60 * 1000;
+
+async function loadLocalEnv() {
+  try {
+    const envText = await readFile(path.join(projectRoot, '.env'), 'utf8');
+
+    envText.split(/\r?\n/).forEach((line) => {
+      const trimmedLine = line.trim();
+
+      if (!trimmedLine || trimmedLine.startsWith('#')) {
+        return;
+      }
+
+      const separatorIndex = trimmedLine.indexOf('=');
+
+      if (separatorIndex < 0) {
+        return;
+      }
+
+      const key = trimmedLine.slice(0, separatorIndex).trim();
+      const rawValue = trimmedLine.slice(separatorIndex + 1).trim();
+      const value = rawValue.replace(/^['"]|['"]$/g, '');
+
+      if (key && !process.env[key]) {
+        process.env[key] = value;
+      }
+    });
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn('.env 파일을 읽지 못했습니다.', error);
+    }
+  }
+}
+
+await loadLocalEnv();
 
 // todos.json 파일이 아직 없을 때 넣을 기본 데이터.
 // 로그인 기능이 생긴 뒤에는 실제 화면에서 사용자별 데이터만 필터링해서 내려준다.
@@ -395,6 +430,74 @@ async function handleWords(request, response) {
 
 // Node 기본 http 서버의 단일 진입점.
 // URL과 method를 직접 확인해서 각 API 핸들러로 분기한다.
+const naverSearchSections = [
+  { id: 'blog', label: '블로그', endpoint: 'blog' },
+  { id: 'cafearticle', label: '카페', endpoint: 'cafearticle' },
+  { id: 'local', label: '지역', endpoint: 'local' },
+];
+
+async function fetchNaverSearchSection(section, query, display, start = 1) {
+  const apiUrl = new URL(`https://openapi.naver.com/v1/search/${section.endpoint}.json`);
+  apiUrl.searchParams.set('query', query);
+  apiUrl.searchParams.set('display', String(display));
+  apiUrl.searchParams.set('start', String(start));
+
+  const naverResponse = await fetch(apiUrl, {
+    headers: {
+      'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+      'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
+    },
+  });
+  const payload = await naverResponse.json().catch(() => ({}));
+
+  return {
+    id: section.id,
+    label: section.label,
+    ok: naverResponse.ok,
+    status: naverResponse.status,
+    total: payload.total ?? 0,
+    items: Array.isArray(payload.items) ? payload.items : [],
+    message: payload.errorMessage || payload.message || '',
+  };
+}
+
+async function handleNaverSearch(request, response, url) {
+  const query = String(url.searchParams.get('query') || '').trim();
+  const display = Math.min(Math.max(Number(url.searchParams.get('display') || 5), 1), 10);
+  const start = Math.min(Math.max(Number(url.searchParams.get('start') || 1), 1), 1000);
+  const sectionId = String(url.searchParams.get('section') || '').trim();
+
+  if (!query) {
+    sendJson(response, 400, { message: '검색어를 입력해 주세요.' });
+    return;
+  }
+
+  if (!process.env.NAVER_CLIENT_ID || !process.env.NAVER_CLIENT_SECRET) {
+    sendJson(response, 500, {
+      message: '네이버 API 키가 설정되지 않았습니다. .env에 NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 넣어 주세요.',
+    });
+    return;
+  }
+
+  const targetSections = sectionId
+    ? naverSearchSections.filter((section) => section.id === sectionId)
+    : naverSearchSections;
+
+  if (sectionId && targetSections.length === 0) {
+    sendJson(response, 400, { message: '지원하지 않는 검색 섹션입니다.' });
+    return;
+  }
+
+  const sections = await Promise.all(
+    targetSections.map((section) => fetchNaverSearchSection(section, query, display, start)),
+  );
+
+  sendJson(response, 200, {
+    query,
+    sections,
+  });
+}
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
 
@@ -440,6 +543,11 @@ const server = createServer(async (request, response) => {
 
     if (url.pathname === '/api/words') {
       await handleWords(request, response);
+      return;
+    }
+
+    if (url.pathname === '/api/naver/search' && request.method === 'GET') {
+      await handleNaverSearch(request, response, url);
       return;
     }
 
