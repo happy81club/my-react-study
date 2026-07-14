@@ -23,7 +23,11 @@ FETCH FIRST 10 ROWS ONLY;
 
 ## 1. Oracle API 로컬 실행
 
-프로젝트 루트의 `.env`에 FreeSQL의 실제 접속정보를 입력합니다. 기존 React용 환경변수와 같은 파일을 사용하지만, `ORACLE_` 값은 Node API만 읽으며 Vite 번들에는 포함되지 않습니다.
+`oracle-api/.env.example`을 `oracle-api/.env`로 복사한 뒤 FreeSQL의 실제 접속정보를 입력합니다. `.env`는 Git에서 제외되며 Node API만 읽습니다.
+
+```powershell
+Copy-Item oracle-api\.env.example oracle-api\.env
+```
 
 ```dotenv
 PORT=10000
