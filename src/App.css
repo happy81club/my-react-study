@@ -113,6 +113,32 @@
   font-size: 14px;
 }
 
+.emergency-info-feature .feature-icon {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.feature-card.emergency-info-feature:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.feature-card.emergency-info-feature:disabled:hover {
+  border-color: #dce4eb;
+  box-shadow: none;
+}
+
+.feature-status {
+  justify-self: end;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
 .oracle-users-shell {
   width: min(100%, 840px);
   padding: 38px;

@@ -619,6 +619,16 @@ function App() {
               <span className="feature-arrow" aria-hidden="true">→</span>
             </button>
 
+            {/* TODO: 국립중앙의료원 응급의료정보 조회 API 연동은 추후 구현 */}
+            <button type="button" className="feature-card emergency-info-feature" disabled>
+              <span className="feature-icon" aria-hidden="true">+</span>
+              <span className="feature-status" aria-hidden="true">작업중</span>
+              <span className="feature-copy">
+                <strong>응급의료정보 조회</strong>
+                <small>휴일·야간 진료 병원과 약국, 응급실 정보를 조회해요.</small>
+              </span>
+            </button>
+
             <button type="button" className="feature-card oracle-users-feature" onClick={() => setActivePage('oracleUsers')}>
               <span className="feature-icon" aria-hidden="true">DB</span>
               <span className="feature-copy">
