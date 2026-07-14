@@ -107,6 +107,151 @@
   color: #166534;
 }
 
+.oracle-users-feature .feature-icon {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+.oracle-users-shell {
+  width: min(100%, 840px);
+  padding: 38px;
+  box-sizing: border-box;
+  border: 1px solid rgba(18, 31, 43, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 32px 80px rgba(18, 31, 43, 0.12);
+  backdrop-filter: blur(20px);
+}
+
+.oracle-users-header {
+  margin-bottom: 24px;
+}
+
+.oracle-users-header .eyebrow {
+  color: #b91c1c;
+}
+
+.oracle-users-header h1 {
+  margin: 0;
+  color: #121f2b;
+  font-size: clamp(30px, 6vw, 46px);
+  line-height: 1.1;
+}
+
+.oracle-users-header p {
+  margin: 10px 0 0;
+  color: #64748b;
+  line-height: 1.65;
+}
+
+.oracle-users-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  border: 1px solid #fde68a;
+  border-radius: 16px;
+  background: #fffbeb;
+}
+
+.oracle-users-status-success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.oracle-users-status-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.oracle-users-status strong {
+  color: #17202a;
+}
+
+.oracle-users-status p {
+  margin: 5px 0 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.oracle-users-status > button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 11px;
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+.oracle-users-status > button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.oracle-cold-start-note {
+  margin: 12px 0 0;
+  color: #92400e;
+  font-size: 13px;
+  text-align: center;
+}
+
+.oracle-users-table-wrap {
+  margin-top: 20px;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+.oracle-users-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.oracle-users-table th,
+.oracle-users-table td {
+  padding: 13px 15px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.oracle-users-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+}
+
+.oracle-users-table td {
+  color: #17202a;
+  font-size: 14px;
+}
+
+.oracle-users-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.oracle-users-help {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.oracle-users-help p {
+  margin: 6px 0 0;
+  line-height: 1.6;
+}
+
+.oracle-users-help code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgba(154, 52, 18, 0.08);
+}
+
 .travel-shell {
   width: min(100%, 900px);
   padding: 34px;
@@ -2888,8 +3033,18 @@ button:hover {
   .settings-shell,
   .feature-shell,
   .english-shell,
-  .travel-shell {
+  .travel-shell,
+  .oracle-users-shell {
     padding: 26px 18px;
+  }
+
+  .oracle-users-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .oracle-users-status > button {
+    width: 100%;
   }
 
   .feature-grid {

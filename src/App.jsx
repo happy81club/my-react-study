@@ -3,6 +3,7 @@ import './App.css';
 import AccountSettingsPage from './AccountSettingsPage.jsx';
 import EnglishMemoryPage from './EnglishMemoryPage.jsx';
 import LoginPage, { AUTH_SESSION_KEY } from './LoginPage.jsx';
+import OracleUsersPage from './OracleUsersPage.jsx';
 import TravelCoursePage from './TravelCoursePage.jsx';
 
 // 개발 서버 프록시를 통해 JSON 파일 저장 API에 연결
@@ -617,6 +618,15 @@ function App() {
               </span>
               <span className="feature-arrow" aria-hidden="true">→</span>
             </button>
+
+            <button type="button" className="feature-card oracle-users-feature" onClick={() => setActivePage('oracleUsers')}>
+              <span className="feature-icon" aria-hidden="true">DB</span>
+              <span className="feature-copy">
+                <strong>Oracle USERS 조회</strong>
+                <small>Render Node API로 FreeSQL 데이터를 조회해요.</small>
+              </span>
+              <span className="feature-arrow" aria-hidden="true">→</span>
+            </button>
           </div>
         </section>
       </main>
@@ -645,6 +655,10 @@ function App() {
         onLogout={onLogout}
       />
     );
+  }
+
+  if (activePage === 'oracleUsers') {
+    return <OracleUsersPage onBack={() => setActivePage('home')} />;
   }
 
   if (activePage === 'travel') {

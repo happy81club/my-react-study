@@ -19,7 +19,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['server/**/*.js'],
+    files: ['server/**/*.js', 'oracle-api/**/*.js'],
     languageOptions: {
       globals: globals.node,
     },

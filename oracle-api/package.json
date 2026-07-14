@@ -1,0 +1,17 @@
+{
+  "name": "my-react-study-oracle-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --env-file=.env src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "oracledb": "^7.0.0"
+  }
+}
