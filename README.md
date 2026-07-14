@@ -85,7 +85,7 @@ Render 환경변수:
 
 ## 4. Cloudflare Pages 연결
 
-Cloudflare Pages의 환경변수에 Render 주소를 등록합니다.
+Cloudflare Pages의 환경변수에 Render 주소를 등록합니다. 이 저장소는 현재 공개 Render API 주소를 `.env.production`에도 설정해 두었으며, Cloudflare 환경변수로 필요할 때 덮어쓸 수 있습니다.
 
 ```dotenv
 VITE_ORACLE_API_URL=https://<RENDER-SERVICE>.onrender.com
