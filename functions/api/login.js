@@ -1,7 +1,6 @@
 import {
   createSession,
   handleError,
-  hashPassword,
   normalizeEmail,
   publicUser,
   readJson,
@@ -15,12 +14,11 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await readJson(request);
     const email = normalizeEmail(body?.email);
-    const passwordHash = await hashPassword(String(body?.password || ''));
     const users = await readUsers(env);
-    const user = users.find((item) => item.email === email && item.passwordHash === passwordHash);
+    const user = users.find((item) => item.email === email);
 
     if (!user) {
-      return sendJson({ message: '이메일 또는 비밀번호가 맞지 않습니다.' }, 401);
+      return sendJson({ message: '가입된 이메일을 확인해 주세요.' }, 401);
     }
 
     const sessions = await readSessions(env);

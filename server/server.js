@@ -377,17 +377,15 @@ async function handleSignup(request, response) {
 }
 
 // POST /api/login
-// 이메일과 비밀번호를 확인하고 새 세션 토큰을 발급한다.
+// 테스트 버전에서는 가입된 이메일만 확인하고 새 세션 토큰을 발급한다.
 async function handleLogin(request, response) {
   const body = await readJsonBody(request);
   const email = normalizeEmail(body?.email);
-  const passwordHash = hashPassword(String(body?.password || ''));
   const users = await readUsers();
-  const user = users.find((item) => item.email === email && item.passwordHash === passwordHash);
+  const user = users.find((item) => item.email === email);
 
-  // 어느 값이 틀렸는지 구체적으로 알려주지 않아서 계정 존재 여부를 추측하기 어렵게 한다.
   if (!user) {
-    sendJson(response, 401, { message: 'Email or password is incorrect.' });
+    sendJson(response, 401, { message: '가입된 이메일을 확인해 주세요.' });
     return;
   }
 

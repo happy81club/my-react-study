@@ -627,7 +627,7 @@ function TravelCoursePage({ initialView = 'map', onBack, onLogin, onLogout, toke
         <section className="travel-shell district-detail-shell" aria-labelledby="travel-place-detail-title">
           <div className="page-navigation">
             <div className="travel-navigation-actions">
-              <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
+              <button type="button" className="home-button" onClick={onBack}>메인</button>
               <button type="button" className="home-button" onClick={() => setPlaceDetail(null)}>목록으로</button>
               {!isAllMyPlacesOpen && selectedRegion && (
                 <button
@@ -638,7 +638,7 @@ function TravelCoursePage({ initialView = 'map', onBack, onLogin, onLogout, toke
                     setSelectedDistrict('');
                   }}
                 >
-                  {selectedRegion.name} 지역
+                  {selectedRegion.name}
                 </button>
               )}
             </div>
@@ -942,8 +942,8 @@ function TravelCoursePage({ initialView = 'map', onBack, onLogin, onLogout, toke
         <section className="travel-shell district-detail-shell" aria-labelledby="my-travel-places-title">
           <div className="page-navigation">
             <div className="travel-navigation-actions">
-              <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
-              <button type="button" className="home-button" onClick={() => setIsAllMyPlacesOpen(false)}>전국 지도</button>
+              <button type="button" className="home-button" onClick={onBack}>메인</button>
+              <button type="button" className="home-button" onClick={() => setIsAllMyPlacesOpen(false)}>지도</button>
             </div>
             {renderSessionAction()}
           </div>
@@ -999,9 +999,9 @@ function TravelCoursePage({ initialView = 'map', onBack, onLogin, onLogout, toke
           <section className="travel-shell district-detail-shell" aria-labelledby="place-manager-title">
             <div className="page-navigation">
               <div className="travel-navigation-actions">
-                <button type="button" className="home-button" onClick={onBack}>메인으로</button>
+                <button type="button" className="home-button" onClick={onBack}>메인</button>
                 <button type="button" className="home-button" onClick={() => setIsPlaceManagerOpen(false)}>검색으로</button>
-                <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>{selectedRegion.name} 지역</button>
+                <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>{selectedRegion.name}</button>
               </div>
               {renderSessionAction()}
             </div>
@@ -1024,9 +1024,9 @@ function TravelCoursePage({ initialView = 'map', onBack, onLogin, onLogout, toke
           <section className="travel-shell district-detail-shell" aria-labelledby="public-place-list-title">
             <div className="page-navigation">
               <div className="travel-navigation-actions">
-                <button type="button" className="home-button" onClick={onBack}>메인으로</button>
+                <button type="button" className="home-button" onClick={onBack}>메인</button>
                 <button type="button" className="home-button" onClick={() => setIsPublicPlaceListOpen(false)}>검색으로</button>
-                <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>{selectedRegion.name} 지역</button>
+                <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>{selectedRegion.name}</button>
               </div>
               {renderSessionAction()}
             </div>
@@ -1056,9 +1056,9 @@ function TravelCoursePage({ initialView = 'map', onBack, onLogin, onLogout, toke
         <section className="travel-shell district-detail-shell" aria-labelledby="district-title">
           <div className="page-navigation">
             <div className="travel-navigation-actions">
-              <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
-              <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>전국 지도</button>
-              <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>{selectedRegion.name} 지역</button>
+              <button type="button" className="home-button" onClick={onBack}>메인</button>
+              <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>지도</button>
+              <button type="button" className="home-button" onClick={() => setSelectedDistrict('')}>{selectedRegion.name}</button>
             </div>
             {renderSessionAction()}
           </div>
@@ -1236,8 +1236,8 @@ function TravelCoursePage({ initialView = 'map', onBack, onLogin, onLogout, toke
         <section className="travel-shell" aria-labelledby="region-title">
           <div className="page-navigation">
             <div className="travel-navigation-actions">
-              <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
-              <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>전국 지도</button>
+              <button type="button" className="home-button" onClick={onBack}>메인</button>
+              <button type="button" className="home-button" onClick={() => setSelectedRegion(null)}>지도</button>
             </div>
             {renderSessionAction()}
           </div>
@@ -1270,7 +1270,7 @@ function TravelCoursePage({ initialView = 'map', onBack, onLogin, onLogout, toke
     <main className="App">
       <section className="travel-shell" aria-labelledby="travel-title">
         <div className="page-navigation">
-          <button type="button" className="home-button" onClick={onBack}>← 메인으로</button>
+          <button type="button" className="home-button" onClick={onBack}>메인</button>
           {renderSessionAction()}
         </div>
         <div className="travel-header">

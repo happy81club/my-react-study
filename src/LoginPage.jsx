@@ -194,11 +194,17 @@ function LoginPage({ onBack, onLogin, prompt }) {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 type="password"
-                minLength={4}
-                required
-                placeholder="4자 이상"
+                minLength={isSignup ? 4 : undefined}
+                required={isSignup}
+                placeholder={isSignup ? '4자 이상' : '테스트 버전에서는 입력하지 않아도 됩니다.'}
               />
             </label>
+
+            {!isSignup && (
+              <p className="auth-test-notice">
+                테스트 버전에서는 비밀번호를 확인하지 않고 가입한 이메일만 확인합니다.
+              </p>
+            )}
 
             {message && <p className="auth-message">{message}</p>}
 

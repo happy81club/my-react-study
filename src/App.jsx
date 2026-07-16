@@ -578,8 +578,8 @@ function App() {
                 <button type="button" onClick={() => setActivePage('login')}>로그인</button>
               )}
             </div>
-            <h1 id="home-title">오늘은 무엇을 해볼까요?</h1>
-            <p>원하는 기능을 선택해 바로 시작해 보세요.</p>
+            <h1 id="home-title">하루모아</h1>
+            <p>여행부터 생활 정보와 나의 기록까지, 필요한 하루를 한곳에서.</p>
           </div>
 
           <div className="feature-grid" aria-label="기능 목록">
